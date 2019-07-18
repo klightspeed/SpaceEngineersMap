@@ -1,0 +1,13 @@
+bin
+obj
+packages
+.vs
+*.csproj.user
+*.suo
+Thumbs.db
+*.VC.db
+*.VC.VC.opendb
+App.*.config
+.*.sw?
+*~
+launchSettings.json
