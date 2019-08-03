@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -73,6 +74,30 @@ namespace SpaceEngineersMap
             else
             {
                 return null;
+            }
+        }
+
+        public GpsEntry RotateFlip2D(RotateFlipType rotation)
+        {
+            switch (rotation)
+            {
+                case RotateFlipType.RotateNoneFlipNone:
+                default:
+                    return new GpsEntry { Name = Name, X = X, Y = Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                case RotateFlipType.Rotate90FlipNone:
+                    return new GpsEntry { Name = Name, X = -Y, Y = X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                case RotateFlipType.Rotate180FlipNone:
+                    return new GpsEntry { Name = Name, X = -X, Y = -Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                case RotateFlipType.Rotate270FlipNone:
+                    return new GpsEntry { Name = Name, X = Y, Y = -X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                case RotateFlipType.RotateNoneFlipX:
+                    return new GpsEntry { Name = Name, X = -X, Y = Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
+                case RotateFlipType.Rotate90FlipX:
+                    return new GpsEntry { Name = Name, X = Y, Y = X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
+                case RotateFlipType.Rotate180FlipX:
+                    return new GpsEntry { Name = Name, X = X, Y = -Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
+                case RotateFlipType.Rotate270FlipX:
+                    return new GpsEntry { Name = Name, X = -Y, Y = -X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
             }
         }
 
