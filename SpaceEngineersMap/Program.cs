@@ -26,7 +26,7 @@ namespace SpaceEngineersMap
             return Faces.ToDictionary(f => f, f => gpesentlists.Select(glist => glist.Select(g => g.Project(1024, 1024, f)).Where(e => e != null).ToList()).ToList());
         }
 
-        static RectangleF? DrawGPS(Bitmap bmp, List<GpsEntry> entries, RotateFlipType rotation)
+        static RectangleF? DrawGPS(Bitmap bmp, List<GpsEntry> entries, RotateFlipType rotation, string prefix)
         {
             if (entries.Count >= 2)
             {
@@ -61,15 +61,18 @@ namespace SpaceEngineersMap
                     {
                         var ent = entries[i].RotateFlip2D(rotation);
                         var nextpoint = new PointF((float)(ent.X + width / 2), (float)(ent.Y + height / 2));
-                        if (ent.Name.EndsWith("$"))
+                        if (ent.Name.StartsWith(prefix) || ent.Name.Contains("-" + prefix))
                         {
-                            g.FillEllipse(poi2brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                            boundsregion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
-                        }
-                        else if (ent.Name.EndsWith("%"))
-                        {
-                            g.FillEllipse(poibrush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                            boundsregion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                            if (ent.Name.EndsWith("$"))
+                            {
+                                g.FillEllipse(poi2brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
+                                boundsregion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                            }
+                            else if (ent.Name.EndsWith("%"))
+                            {
+                                g.FillEllipse(poibrush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
+                                boundsregion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                            }
                         }
                     }
 
@@ -83,11 +86,14 @@ namespace SpaceEngineersMap
                         var nextpoint = new PointF((float)(ent.X + width / 2), (float)(ent.Y + height / 2));
                         if (ent.Name.EndsWith("@"))
                         {
-                            g.DrawLine(altpen, altpoint, nextpoint);
-                            using (var path = new GraphicsPath())
+                            if (ent.Name.StartsWith(prefix))
                             {
-                                path.AddLine(altpoint, nextpoint);
-                                boundsregion.Union(path);
+                                g.DrawLine(altpen, altpoint, nextpoint);
+                                using (var path = new GraphicsPath())
+                                {
+                                    path.AddLine(altpoint, nextpoint);
+                                    boundsregion.Union(path);
+                                }
                             }
                             altpoint = nextpoint;
                         }
@@ -97,11 +103,14 @@ namespace SpaceEngineersMap
                         }
                         else if (!ent.Name.EndsWith("$") && !ent.Name.EndsWith("#"))
                         {
-                            g.DrawLine(travelpen, point, nextpoint);
-                            using (var path = new GraphicsPath())
+                            if (ent.Name.StartsWith(prefix))
                             {
-                                path.AddLine(point, nextpoint);
-                                boundsregion.Union(path);
+                                g.DrawLine(travelpen, point, nextpoint);
+                                using (var path = new GraphicsPath())
+                                {
+                                    path.AddLine(point, nextpoint);
+                                    boundsregion.Union(path);
+                                }
                             }
                             altpoint = point = nextpoint;
                         }
@@ -113,10 +122,13 @@ namespace SpaceEngineersMap
                         if (!string.IsNullOrWhiteSpace(ent.Description) && ent.Description != "Current position")
                         {
                             var nextpoint = new PointF((float)(ent.X + width / 2), (float)(ent.Y + height / 2));
-                            var textbounds = TextDrawing.DrawText(g, ent.Description, nextpoint, textfont, textbrush, textoutline);
-                            if (textbounds is RectangleF rect)
+                            if (ent.Name.StartsWith(prefix) || ent.Name.Contains("-" + prefix))
                             {
-                                boundsregion.Union(rect);
+                                var textbounds = TextDrawing.DrawText(g, ent.Description, nextpoint, textfont, textbrush, textoutline);
+                                if (textbounds is RectangleF rect)
+                                {
+                                    boundsregion.Union(rect);
+                                }
                             }
                         }
                     }
@@ -248,6 +260,12 @@ namespace SpaceEngineersMap
             bmp.Save(filename);
         }
 
+        static string[] GetSegmentPrefixes(Dictionary<string, List<List<GpsEntry>>> gpsentries)
+        {
+            var entries = gpsentries.Values.SelectMany(l1 => l1.SelectMany(l2 => l2)).ToList();
+            return new[] { "" }.Concat(entries.Select(e => e.Name.Substring(0, 3)).Distinct()).ToArray();
+        }
+
         static void ShowHelp()
         {
             Console.WriteLine("Usage: SpaceEngineersMap {options} [savedirectory]");
@@ -377,25 +395,62 @@ namespace SpaceEngineersMap
                 return;
             }
 
+            Console.WriteLine("Getting GPS entries");
             var gpsentlists = ProcessBookmarks(savedir);
+            var segments = GetSegmentPrefixes(gpsentlists);
+            Console.WriteLine("Creating contour maps");
             var contourmaps = ProcessPlanetDefs(contentdir);
-            var gpsbounds = new Dictionary<string, Bounds>();
 
-            foreach (var kvp in contourmaps)
+            foreach (var segment in segments)
             {
-                kvp.Value.RotateFlip(rotations[kvp.Key]);
-                var mapbounds = new Bounds(new RectangleF(0, 0, kvp.Value.Width, kvp.Value.Height));
-                foreach (var gpsents in gpsentlists[kvp.Key])
-                {
-                    var gpsboundsrect = DrawGPS(kvp.Value, gpsents, rotations[kvp.Key]);
-                    mapbounds.AddRectangle(gpsboundsrect);
-                }
-                gpsbounds[kvp.Key] = mapbounds;
-                SaveBitmap(kvp.Value, Path.Combine(outputdir, kvp.Key + ".png"));
-            }
+                Console.WriteLine($"Processing segment {segment}");
+                string segdir = outputdir;
 
-            var tilebmp = CreateTileMap(contourmaps, tileparts, gpsbounds, croptilemap);
-            SaveBitmap(tilebmp, Path.Combine(outputdir, "tilemap.png"));
+                if (segment != "")
+                {
+                    segdir = Path.Combine(segdir, segment);
+                }
+
+                if (!Directory.Exists(segdir))
+                {
+                    Directory.CreateDirectory(segdir);
+                }
+
+                Dictionary<string, Bitmap> maps = new Dictionary<string, Bitmap>();
+                Bitmap tilebmp = null;
+
+                try
+                {
+                    var gpsbounds = new Dictionary<string, Bounds>();
+
+                    foreach (var kvp in contourmaps)
+                    {
+                        var bmp = (Bitmap)kvp.Value.Clone();
+                        maps[kvp.Key] = bmp;
+                        bmp.RotateFlip(rotations[kvp.Key]);
+                        var mapbounds = new Bounds(new RectangleF(0, 0, bmp.Width, bmp.Height));
+
+                        foreach (var gpsents in gpsentlists[kvp.Key])
+                        {
+                            var gpsboundsrect = DrawGPS(bmp, gpsents, rotations[kvp.Key], segment);
+                            mapbounds.AddRectangle(gpsboundsrect);
+                        }
+                        gpsbounds[kvp.Key] = mapbounds;
+                        SaveBitmap(bmp, Path.Combine(segdir, kvp.Key + ".png"));
+                    }
+
+                    tilebmp = CreateTileMap(maps, tileparts, gpsbounds, croptilemap);
+                    SaveBitmap(tilebmp, Path.Combine(segdir, "tilemap.png"));
+                }
+                finally
+                {
+                    tilebmp?.Dispose();
+                    foreach (var kvp in maps)
+                    {
+                        kvp.Value.Dispose();
+                    }
+                }
+            }
         }
     }
 }
