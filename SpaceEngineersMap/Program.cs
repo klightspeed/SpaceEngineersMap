@@ -44,13 +44,28 @@ namespace SpaceEngineersMap
                 {
                     g = Graphics.FromImage(bmp);
                     g.SmoothingMode = SmoothingMode.HighQuality;
-                    travelpen = new Pen(Color.DarkBlue, 2.0f);
-                    altpen = new Pen(Color.DarkRed, 2.0f);
+                    travelpen = new Pen(Color.DarkBlue, 2.0f)
+                    {
+                        LineJoin = LineJoin.Round,
+                        EndCap = LineCap.Round,
+                        StartCap = LineCap.Round
+                    };
+                    altpen = new Pen(Color.DarkRed, 2.0f)
+                    {
+                        LineJoin = LineJoin.Round,
+                        EndCap = LineCap.Round,
+                        StartCap = LineCap.Round
+                    };
                     poibrush = new SolidBrush(Color.DarkViolet);
                     poi2brush = new SolidBrush(Color.DarkGreen);
                     textfont = new Font(FontFamily.GenericSansSerif, 12.0f, GraphicsUnit.Pixel);
                     textbrush = new SolidBrush(Color.Black);
-                    textoutline = new Pen(Color.White, 4.0f);
+                    textoutline = new Pen(Color.White, 4.0f)
+                    {
+                        LineJoin = LineJoin.Round,
+                        EndCap = LineCap.Round,
+                        StartCap = LineCap.Round
+                    };
                     boundsregion = new Region();
                     boundsregion.MakeEmpty();
 
@@ -86,13 +101,13 @@ namespace SpaceEngineersMap
                         var nextpoint = new PointF((float)(ent.X + width / 2), (float)(ent.Y + height / 2));
                         if (ent.Name.EndsWith("@"))
                         {
-                            if (ent.Name.StartsWith(prefix))
+                            if (ent.Name.StartsWith(prefix) && prefix != "")
                             {
                                 g.DrawLine(altpen, altpoint, nextpoint);
                                 using (var path = new GraphicsPath())
                                 {
                                     path.AddLine(altpoint, nextpoint);
-                                    boundsregion.Union(path);
+                                    boundsregion.Union(path.GetBounds(new Matrix(), altpen));
                                 }
                             }
                             altpoint = nextpoint;
@@ -109,7 +124,7 @@ namespace SpaceEngineersMap
                                 using (var path = new GraphicsPath())
                                 {
                                     path.AddLine(point, nextpoint);
-                                    boundsregion.Union(path);
+                                    boundsregion.Union(path.GetBounds(new Matrix(), travelpen));
                                 }
                             }
                             altpoint = point = nextpoint;
@@ -124,7 +139,10 @@ namespace SpaceEngineersMap
                             var nextpoint = new PointF((float)(ent.X + width / 2), (float)(ent.Y + height / 2));
                             if (ent.Name.StartsWith(prefix) || ent.Name.Contains("-" + prefix))
                             {
-                                var textbounds = TextDrawing.DrawText(g, ent.Description, nextpoint, textfont, textbrush, textoutline);
+                                bool hidepart1 = !ent.Name.StartsWith(prefix);
+                                bool hidepart2 = !ent.Name.Contains("-" + prefix);
+
+                                var textbounds = TextDrawing.DrawText(g, ent.Description, nextpoint, textfont, textbrush, textoutline, hidepart1, hidepart2);
                                 if (textbounds is RectangleF rect)
                                 {
                                     boundsregion.Union(rect);

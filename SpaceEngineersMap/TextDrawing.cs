@@ -98,7 +98,7 @@ namespace SpaceEngineersMap
         };
 
 
-        public static RectangleF? DrawText(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen)
+        public static RectangleF? DrawText(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
         {
             var cmdarg = desc.Split(new[] { ' ' }, 2);
             var margin = 10;
@@ -117,6 +117,16 @@ namespace SpaceEngineersMap
                 };
 
                 var sections = cmdarg[1].Split(new[] { " / " }, StringSplitOptions.None);
+
+                if (hidepart1 && !hidepart2 && sections.Length > 1)
+                {
+                    sections = sections.Skip(1).ToArray();
+                }
+                else if (hidepart2 && !hidepart1)
+                {
+                    sections = new[] { sections[0] };
+                }
+
                 var sectionlines = sections.Select(s => s.Split(new[] { "  ", }, StringSplitOptions.None)).ToArray();
                 var lines = sectionlines.SelectMany(l => l).ToArray();
                 var hrules = sectionlines.Select(s => s.Length).ToArray();
