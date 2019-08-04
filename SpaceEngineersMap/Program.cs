@@ -50,7 +50,7 @@ namespace SpaceEngineersMap
                     poi2brush = new SolidBrush(Color.DarkGreen);
                     textfont = new Font(FontFamily.GenericSansSerif, 12.0f, GraphicsUnit.Pixel);
                     textbrush = new SolidBrush(Color.Black);
-                    textoutline = new Pen(Color.White, 2.0f);
+                    textoutline = new Pen(Color.White, 4.0f);
                     boundsregion = new Region();
                     boundsregion.MakeEmpty();
 

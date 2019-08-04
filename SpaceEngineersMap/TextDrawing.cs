@@ -132,7 +132,7 @@ namespace SpaceEngineersMap
                     for (int i = 0; i < hrules.Length - 1; i++)
                     {
                         rulepos += hrules[i] * fontheight;
-                        path.AddRectangle(new RectangleF(rect.X, rulepos - 1.5f, rect.Width, 1.0f));
+                        path.AddRectangle(new RectangleF(rect.X, rulepos - 2.5f, rect.Width, 1.0f));
                     }
 
                     var topleft = new PointF(pos.X + attachpoint.X, pos.Y + attachpoint.Y);
