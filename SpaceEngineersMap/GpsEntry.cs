@@ -60,12 +60,28 @@ namespace SpaceEngineersMap
             if (v > maxval / mult)
             {
                 double div = mult / v;
+                x *= div;
+                y *= div;
+
+                if (Math.Abs(x) > mult)
+                {
+                    double mult2 = mult / Math.Abs(x);
+                    x = mult * (2 - mult2) * Math.Sign(x);
+                    y *= mult2;
+                }
+
+                if (Math.Abs(y) > mult)
+                {
+                    double mult2 = mult / Math.Abs(y);
+                    x *= mult2;
+                    y = mult * (2 - mult2) * Math.Sign(y);
+                }
 
                 return new GpsEntry
                 {
                     Name = Name,
-                    X = x * div,
-                    Y = y * div,
+                    X = x,
+                    Y = y,
                     Z = mult,
                     Description = Description,
                     ShowOnHud = ShowOnHud
