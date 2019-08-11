@@ -17,7 +17,7 @@ namespace SpaceEngineersMap
         public string Description { get; set; }
         public bool ShowOnHud { get; set; }
 
-        public GpsEntry Project(int mult, int maxval, string face)
+        public GpsEntry Project(int mult, int maxval, CubeFace face)
         {
             double v = 0;
             double x = 0;
@@ -25,32 +25,32 @@ namespace SpaceEngineersMap
             
             switch (face)
             {
-                case "up":
+                case CubeFace.Up:
                     v = Y;
                     x = X;
                     y = Z;
                     break;
-                case "down":
+                case CubeFace.Down:
                     v = -Y;
                     x = X;
                     y = -Z;
                     break;
-                case "left":
+                case CubeFace.Left:
                     v = X;
                     x = -Z;
                     y = -Y;
                     break;
-                case "right":
+                case CubeFace.Right:
                     v = -X;
                     x = Z;
                     y = -Y;
                     break;
-                case "front":
+                case CubeFace.Front:
                     v = -Z;
                     x = -X;
                     y = Y;
                     break;
-                case "back":
+                case CubeFace.Back:
                     v = Z;
                     x = X;
                     y = Y;
