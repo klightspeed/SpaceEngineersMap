@@ -123,7 +123,36 @@ namespace SpaceEngineersMap
 
                     if (mid / 4 != hi / 4)
                     {
-                        pxr = pxg = pxb = 64;
+                        if (mid < 8)
+                        {
+                            pxr = 0;
+                            pxg = 64;
+                            pxb = 96;
+                        }
+                        else if (hi >= 72)
+                        {
+                            pxr = 128;
+                            pxg = 0;
+                            pxb = 0;
+                        }
+                        else if (hi >= 32)
+                        {
+                            pxr = 96;
+                            pxg = 32;
+                            pxb = 0;
+                        }
+                        else if (hi >= 24)
+                        {
+                            pxr = 64;
+                            pxg = 32;
+                            pxb = 0;
+                        }
+                        else
+                        {
+                            pxr = 32;
+                            pxg = 64;
+                            pxb = 32;
+                        }
                     }
                     else if (mat == 82)
                     {
