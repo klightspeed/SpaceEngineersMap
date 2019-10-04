@@ -15,6 +15,9 @@ namespace SpaceEngineersMap
         public string OutputDirectory { get; set; }
         public bool ShowHelp { get; set; }
         public bool CropTileMap { get; set; }
+        public bool CropTexture { get; set; }
+        public int EpisodeTextureSize { get; set; } = 512;
+        public int FullMapTextureSize { get; set; } = 1024;
         public CubeFace[][] TileFaces { get; set; }
         public Dictionary<CubeFace, RotateFlipType> FaceRotations { get; set; }
 
@@ -27,6 +30,7 @@ namespace SpaceEngineersMap
                 OutputDirectory = null,
                 ShowHelp = false,
                 CropTileMap = false,
+                CropTexture = false,
                 TileFaces = new[]
                 {
                     new[] { CubeFace.None, CubeFace.Down, CubeFace.None, CubeFace.None },
@@ -88,6 +92,20 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--crop")
                 {
                     opts.CropTileMap = true;
+                }
+                else if (args[i] == "--croptexture")
+                {
+                    opts.CropTexture = true;
+                }
+                else if (args[i] == "--texturesize" && i < args.Length - 1)
+                {
+                    opts.EpisodeTextureSize = Int32.Parse(args[i + 1]);
+                    i++;
+                }
+                else if (args[i] == "--fullmaptexturesize" && i < args.Length - 1)
+                {
+                    opts.FullMapTextureSize = Int32.Parse(args[i + 1]);
+                    i++;
                 }
                 else if (args[i] == "--help" || args[i] == "/?")
                 {

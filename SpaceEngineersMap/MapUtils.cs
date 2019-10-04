@@ -127,7 +127,7 @@ namespace SpaceEngineersMap
             return contourmaps;
         }
 
-        public static Bitmap CreateTileMap(Dictionary<CubeFace, Bitmap> maps, CubeFace[][] tiles, Dictionary<CubeFace, Bounds> mapbounds, bool cropmap)
+        public static Bitmap CreateTileMap(Dictionary<CubeFace, Bitmap> maps, CubeFace[][] tiles, Dictionary<CubeFace, Bounds> mapbounds, bool cropmap, bool croptexture, int texturesize)
         {
             var tilewidth = maps.Values.Max(v => v.Width);
             var tileheight = maps.Values.Max(v => v.Height);
@@ -156,6 +156,15 @@ namespace SpaceEngineersMap
             {
                 var rect = bounds.GetBounds();
                 boundsrect = new Rectangle((int)Math.Floor(rect.X - margin), (int)Math.Floor(rect.Y - margin), (int)Math.Ceiling(rect.Width + margin * 2), (int)Math.Ceiling(rect.Height + margin * 2));
+            }
+            else if (croptexture && bounds.IsValid)
+            {
+                var rect = bounds.GetBounds();
+                var texwidth = (int)Math.Floor((rect.Width + texturesize - 1) / texturesize);
+                var texheight = (int)Math.Floor((rect.Height + texturesize - 1) / texturesize);
+                var xmargin = (int)Math.Floor((texwidth * texturesize - rect.Width) / 2);
+                var ymargin = (int)Math.Floor((texheight * texturesize - rect.Height) / 2);
+                boundsrect = new Rectangle((int)Math.Floor(rect.X - xmargin), (int)Math.Floor(rect.Y - ymargin), texwidth * texturesize, texheight * texturesize);
             }
 
             var bmp = new Bitmap(boundsrect.Width, boundsrect.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -189,6 +198,27 @@ namespace SpaceEngineersMap
             bmp.Save(filename);
         }
 
+        public static void SaveTextures(Bitmap bmp, string basename, string extension, int texturesize)
+        {
+            for (int x = 0; x < bmp.Width / texturesize; x++)
+            {
+                for (int y = 0; y < bmp.Height / texturesize; y++)
+                {
+                    var filename = $"{basename}+{x + 1}+{y + 1}.{extension}";
+                    using (var texbmp = new Bitmap(texturesize, texturesize, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                    {
+                        using (var g = Graphics.FromImage(texbmp))
+                        {
+                            var destrect = new Rectangle(0, 0, texturesize, texturesize);
+                            var srcrect = new Rectangle(x * texturesize, y * texturesize, texturesize, texturesize);
+                            g.DrawImage(bmp, destrect, srcrect, GraphicsUnit.Pixel);
+                        }
+                        SaveBitmap(texbmp, filename);
+                    }
+                }
+            }
+        }
+
         public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, SEMapOptions opts, string segment, string outdir)
         {
             Dictionary<CubeFace, Bitmap> maps = new Dictionary<CubeFace, Bitmap>();
@@ -214,8 +244,13 @@ namespace SpaceEngineersMap
                     SaveBitmap(bmp, Path.Combine(outdir, kvp.Key.ToString() + ".png"));
                 }
 
-                tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap);
+                tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
                 SaveBitmap(tilebmp, Path.Combine(outdir, "tilemap.png"));
+
+                if (opts.CropTexture)
+                {
+                    SaveTextures(tilebmp, Path.Combine(outdir, "texture"), "png", segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                }
             }
             finally
             {

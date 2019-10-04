@@ -142,10 +142,26 @@ namespace SpaceEngineersMap
                 var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
                 if (ent.Name.StartsWith(Prefix) || ent.Name.Contains("-" + Prefix))
                 {
-                    if (ent.Name.EndsWith("$"))
+                    if (ent.Name.EndsWith("@$"))
+                    {
+                        if (Prefix != "")
+                        {
+                            Graphics.FillEllipse(POI2Brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
+                            BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                        }
+                    }
+                    else if (ent.Name.EndsWith("$"))
                     {
                         Graphics.FillEllipse(POI2Brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
                         BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                    }
+                    else if (ent.Name.EndsWith("@%"))
+                    {
+                        if (Prefix != "")
+                        {
+                            Graphics.FillEllipse(POIBrush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
+                            BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                        }
                     }
                     else if (ent.Name.EndsWith("%"))
                     {
@@ -166,7 +182,7 @@ namespace SpaceEngineersMap
             {
                 var ent = Entries[i].RotateFlip2D(Rotation);
                 var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
-                if (ent.Name.EndsWith("@"))
+                if (ent.Name.EndsWith("@") || ent.Name.EndsWith("@%"))
                 {
                     if (ent.Name.StartsWith(Prefix) && Prefix != "")
                     {
@@ -207,7 +223,7 @@ namespace SpaceEngineersMap
                 if (!string.IsNullOrWhiteSpace(ent.Description) && ent.Description != "Current position")
                 {
                     var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
-                    if (ent.Name.StartsWith(Prefix) || ent.Name.Contains("-" + Prefix))
+                    if ((ent.Name.StartsWith(Prefix) || ent.Name.Contains("-" + Prefix)) && (Prefix != "" || !ent.Name.Contains("@")))
                     {
                         bool hidepart1 = !ent.Name.StartsWith(Prefix);
                         bool hidepart2 = !ent.Name.Contains("-" + Prefix);

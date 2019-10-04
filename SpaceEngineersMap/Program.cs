@@ -39,7 +39,14 @@ namespace SpaceEngineersMap
             Console.WriteLine("    Tile map top to bottom, left to right");
             Console.WriteLine("    Use blank ('') to signify an empty tile");
             Console.WriteLine("    Default: :down::,back:right:front:left,:up::");
-
+            Console.WriteLine("--crop");
+            Console.WriteLine("    Crop map to visited area, with padding");
+            Console.WriteLine("--croptexture");
+            Console.WriteLine("    Crop map to visited area, padded to texture size");
+            Console.WriteLine("--texturesize <size>");
+            Console.WriteLine("    Set episode map texture size");
+            Console.WriteLine("--fullmaptexturesize <size>");
+            Console.WriteLine("    Set full map texture size");
             Console.WriteLine();
         }
 
