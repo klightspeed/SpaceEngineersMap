@@ -42,7 +42,7 @@ namespace SpaceEngineersMap
                 },
                 FaceRotations = new Dictionary<CubeFace, RotateFlipType>
                 {
-                    [CubeFace.Up] = RotateFlipType.Rotate90FlipNone,
+                    [CubeFace.Up] = RotateFlipType.Rotate270FlipNone,
                     [CubeFace.Down] = RotateFlipType.Rotate270FlipNone,
                     [CubeFace.Left] = RotateFlipType.Rotate180FlipNone,
                     [CubeFace.Front] = RotateFlipType.Rotate180FlipNone,

@@ -27,8 +27,8 @@ namespace SpaceEngineersMap
             {
                 case CubeFace.Up:
                     v = Y;
-                    x = X;
-                    y = Z;
+                    x = -X;
+                    y = -Z;
                     break;
                 case CubeFace.Down:
                     v = -Y;
