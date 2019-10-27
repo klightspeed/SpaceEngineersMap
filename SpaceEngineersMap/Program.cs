@@ -104,7 +104,7 @@ namespace SpaceEngineersMap
             var contourmaps = MapUtils.GetContourMaps(opts.ContentDirectory);
             DateTime filesavetime = default;
 
-            while (!opts.OnSave || WaitForSave(opts.SaveDirectory, ref filesavetime))
+            while (WaitForSave(opts.SaveDirectory, ref filesavetime))
             {
                 Console.WriteLine("Getting GPS entries");
                 var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, out var endname);
@@ -132,6 +132,11 @@ namespace SpaceEngineersMap
                 }
 
                 Console.WriteLine("Done");
+
+                if (!opts.OnSave)
+                {
+                    break;
+                }
             }
 
             Console.WriteLine("Exiting");
