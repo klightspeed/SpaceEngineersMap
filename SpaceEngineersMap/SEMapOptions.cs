@@ -16,6 +16,9 @@ namespace SpaceEngineersMap
         public bool ShowHelp { get; set; }
         public bool CropTileMap { get; set; }
         public bool CropTexture { get; set; }
+        public bool CropEnd { get; set; }
+        public bool OnSave { get; set; }
+        public int EndTextureSize { get; set; } = 256;
         public int EpisodeTextureSize { get; set; } = 512;
         public int FullMapTextureSize { get; set; } = 1024;
         public CubeFace[][] TileFaces { get; set; }
@@ -106,6 +109,19 @@ namespace SpaceEngineersMap
                 {
                     opts.FullMapTextureSize = Int32.Parse(args[i + 1]);
                     i++;
+                }
+                else if (args[i] == "--cropend")
+                {
+                    opts.CropEnd = true;
+                }
+                else if (args[i] == "--endsize" && i < args.Length - 1)
+                {
+                    opts.EndTextureSize = Int32.Parse(args[i + 1]);
+                    i++;
+                }
+                else if (args[i] == "--onsave")
+                {
+                    opts.OnSave = true;
                 }
                 else if (args[i] == "--help" || args[i] == "/?")
                 {

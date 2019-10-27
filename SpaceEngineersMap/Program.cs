@@ -47,7 +47,37 @@ namespace SpaceEngineersMap
             Console.WriteLine("    Set episode map texture size");
             Console.WriteLine("--fullmaptexturesize <size>");
             Console.WriteLine("    Set full map texture size");
+            Console.WriteLine("--cropend");
+            Console.WriteLine("    Export only the area around the end position");
+            Console.WriteLine("--endsize");
+            Console.WriteLine("    Size of the exported end area");
+            Console.WriteLine("--onsave");
+            Console.WriteLine("    Wait for the save game to be updated, and loop while the game is running");
             Console.WriteLine();
+        }
+
+        static bool WaitForSave(string path, ref DateTime filesavetime)
+        {
+            while (true)
+            {
+                var lastsave = File.GetLastWriteTimeUtc(Path.Combine(path, "Sandbox.sbc"));
+                var configsave = File.GetLastWriteTimeUtc(Path.Combine(path, "Sandbox_config.sbc"));
+
+                if (lastsave != filesavetime && configsave > lastsave)
+                {
+                    filesavetime = lastsave;
+                    return true;
+                }
+
+                var seprocesses = System.Diagnostics.Process.GetProcessesByName("SpaceEngineers");
+
+                if (seprocesses.Length == 0)
+                {
+                    return false;
+                }
+
+                System.Threading.Thread.Sleep(5000);
+            }
         }
 
         static void Main(string[] args)
@@ -70,29 +100,41 @@ namespace SpaceEngineersMap
                 return;
             }
 
-            Console.WriteLine("Getting GPS entries");
-            var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory);
-            var segments = GetSegmentPrefixes(gpsentlists);
             Console.WriteLine("Creating contour maps");
             var contourmaps = MapUtils.GetContourMaps(opts.ContentDirectory);
+            DateTime filesavetime = default;
 
-            foreach (var segment in segments)
+            while (!opts.OnSave || WaitForSave(opts.SaveDirectory, ref filesavetime))
             {
-                Console.WriteLine($"Processing segment {segment}");
-                string segdir = opts.OutputDirectory;
+                Console.WriteLine("Getting GPS entries");
+                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, out var endname);
+                var segments = GetSegmentPrefixes(gpsentlists);
 
-                if (segment != "")
+                foreach (var segment in segments)
                 {
-                    segdir = Path.Combine(segdir, segment);
+                    if (segment == "" || !opts.CropEnd)
+                    {
+                        Console.WriteLine($"Processing segment {segment}");
+                        string segdir = opts.OutputDirectory;
+
+                        if (segment != "")
+                        {
+                            segdir = Path.Combine(segdir, segment);
+                        }
+
+                        if (!Directory.Exists(segdir))
+                        {
+                            Directory.CreateDirectory(segdir);
+                        }
+
+                        MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment, segdir, endname);
+                    }
                 }
 
-                if (!Directory.Exists(segdir))
-                {
-                    Directory.CreateDirectory(segdir);
-                }
-
-                MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment, segdir);
+                Console.WriteLine("Done");
             }
+
+            Console.WriteLine("Exiting");
         }
     }
 }

@@ -38,15 +38,17 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static Dictionary<CubeFace, List<List<GpsEntry>>> GetGPSEntries(string savedir)
+        public static Dictionary<CubeFace, List<List<GpsEntry>>> GetGPSEntries(string savedir, out string endname)
         {
             var namere = new Regex(@"^P\d\d\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(Path.Combine(savedir, "Sandbox.sbc"));
             var items = xdoc.Root.Element("Gps").Element("dictionary").Elements("item").ToList();
             var entlists = items.Select(i => i.Element("Value").Element("Entries").Elements("Entry").Select(e => GpsEntry.FromXML(e)).ToList()).ToList();
-            var gpesentlists = entlists.Select(ent => ent.Where(e => namere.IsMatch(e.Name)).OrderBy(e => e.Name).ToList()).ToList();
+            var gpsentlists = entlists.Select(ent => ent.Where(e => namere.IsMatch(e.Name)).OrderBy(e => e.Name).ToList()).ToList();
 
-            return Faces.Select(f => GetFace(f)).ToDictionary(f => f, f => gpesentlists.Select(glist => glist.Select(g => g.Project(1024, 1024, f)).Where(e => e != null).ToList()).ToList());
+            endname = gpsentlists.Where(e => e.Count >= 1).Select(e => e.Last().Name).FirstOrDefault();
+
+            return Faces.Select(f => GetFace(f)).ToDictionary(f => f, f => gpsentlists.Select(glist => glist.Select(g => g.Project(1024, 1024, f)).Where(e => e != null).ToList()).ToList());
         }
 
         private static void DrawPOIs(Graphics g, List<GpsEntry> entries, RotateFlipType rotation, Region boundsregion, string prefix, float width, float height, Brush poibrush, Brush poi2brush)
@@ -219,7 +221,7 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, SEMapOptions opts, string segment, string outdir)
+        public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, SEMapOptions opts, string segment, string outdir, string endname)
         {
             Dictionary<CubeFace, Bitmap> maps = new Dictionary<CubeFace, Bitmap>();
             Bitmap tilebmp = null;
@@ -238,18 +240,49 @@ namespace SpaceEngineersMap
                     foreach (var gpsents in gpsentlists[kvp.Key])
                     {
                         var gpsboundsrect = MapUtils.DrawGPS(bmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segment);
-                        mapbounds.AddRectangle(gpsboundsrect);
+
+                        if (!opts.CropEnd)
+                        {
+                            mapbounds.AddRectangle(gpsboundsrect);
+                        }
                     }
+
+                    var endgps = gpsentlists[kvp.Key].Select(e => e.FirstOrDefault(g => g.Name == endname)).FirstOrDefault();
+
+                    if (endgps != null)
+                    {
+                        endgps = endgps.RotateFlip2D(opts.FaceRotations[kvp.Key]);
+                        var x = (float)(endgps.X + bmp.Width / 2);
+                        var y = (float)(endgps.Y + bmp.Height / 2);
+
+                        if (x >= 0 && x < bmp.Width && y >= 0 && y < bmp.Height)
+                        {
+                            mapbounds.AddRectangle(x - 1, y - 1, 2, 2);
+                        }
+                    }
+
                     gpsbounds[kvp.Key] = mapbounds;
-                    SaveBitmap(bmp, Path.Combine(outdir, kvp.Key.ToString() + ".png"));
+
+                    if (!opts.CropEnd)
+                    {
+                        SaveBitmap(bmp, Path.Combine(outdir, kvp.Key.ToString() + ".png"));
+                    }
                 }
 
-                tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
-                SaveBitmap(tilebmp, Path.Combine(outdir, "tilemap.png"));
-
-                if (opts.CropTexture)
+                if (opts.CropEnd)
                 {
-                    SaveTextures(tilebmp, Path.Combine(outdir, "texture"), "png", segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, false, opts.CropTexture, opts.EndTextureSize);
+                    SaveBitmap(tilebmp, Path.Combine(outdir, "endmap.png"));
+                }
+                else
+                {
+                    tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    SaveBitmap(tilebmp, Path.Combine(outdir, "tilemap.png"));
+
+                    if (opts.CropTexture)
+                    {
+                        SaveTextures(tilebmp, Path.Combine(outdir, "texture"), "png", segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    }
                 }
             }
             finally
