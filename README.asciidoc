@@ -28,28 +28,28 @@ SpaceEngineersMap accepts the following options:
 
 `--savedir <path>`::
     Saved Game Directory Path.
-	+
-	Default: current working directory
++
+Default: current working directory
 
 `--contentdir <path>`::
     Path to Space Engineers content directory.
-	+
-	Required
++
+Required
 
 `--outdir <path>`::
 	Directory in which to output maps.
-	+
-	Default: current working directory
++
+Default: current working directory
 
 `--rotate <map>:<direction>`::
     Rotate maps selected direction.
-	+
-	Map names are the faces of a cube (up/down/left/right/front/back), 
-	with up being south and down being north.
-	+
-	Defaults: `up:90 down:270 left:180 front:180 right:180 back:180`;
-	+
-	Possible directions:
++
+Map names are the faces of a cube (up/down/left/right/front/back), 
+with up being south and down being north.
++
+Defaults: `up:90 down:270 left:180 front:180 right:180 back:180`;
++
+Possible directions:
 
 	`cw` / `90`;;
 		clockwise
@@ -63,11 +63,11 @@ SpaceEngineersMap accepts the following options:
 
 `--tile <tiles>`::
 	Tile map top-to-bottom, left-to-right.
-	+
-	Tiles are specified as comma-delimited rows of colon-delimited tile names.
-	+
-	Tile names are the faces of a cube (up/down/left/right/front/back),
-	or `none` for a blank map in that tile.
++
+Tiles are specified as comma-delimited rows of colon-delimited tile names.
++
+Tile names are the faces of a cube (up/down/left/right/front/back),
+or `none` for a blank map in that tile.
 
 `--crop`::
 	Crop the tile maps to the area with GPS markers
@@ -110,8 +110,8 @@ Nothing::
 
 `@`::
 	Path only drawn for episode map.
-	+
-	Starts at last normal path point, and does not affect normal path
++
+Starts at last normal path point, and does not affect normal path
 
 `@%`::
 	Waypoint marker for episode map only
