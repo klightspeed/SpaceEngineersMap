@@ -22,7 +22,7 @@ namespace SpaceEngineersMap
             Console.WriteLine("Usage: SpaceEngineersMap {options} [savedirectory]");
             Console.WriteLine("");
             Console.WriteLine("Options:");
-            Console.WriteLine("--savedir <filename>");
+            Console.WriteLine("--savedir <directory>");
             Console.WriteLine("    Saved Game Directory Path");
             Console.WriteLine("    Default: working directory");
             Console.WriteLine("--contentdir <path>");

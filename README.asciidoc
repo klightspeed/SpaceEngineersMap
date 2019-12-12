@@ -1,0 +1,159 @@
+= Space Engineers Mapping Utilities
+
+SEMapGPSMod
+-----------
+
+This mod was created to assist in creating GPS markers while tracing [Splitsie's Wrong Way Down series](https://www.youtube.com/playlist?list=PLfMGCUepUcNwWdUdK2Df3i4AuK9Y7QBut)
+It accepts one command `/semapgps` with one of the following possible parameters:
+
+`P01.02.03.04`: Creates a GPS marker specifying a point in time, with the format `Ppp.hh.mm.ss`
+`+05`: Creates a GPS marker specifying a point in time the specified number of seconds (00s - 99s) after the last created GPS marker
+
+These GPS markers are used by the main SpaceEngineersMap program.
+
+SpaceEngineersMap
+-----------------
+
+This program reads the Space Engineers save, and creates a set of map images from the GPS points in the save.
+If there are no GPS points of the format `Ppp.hh.mm.ss`, then the saved maps will be blank topographic maps.
+
+Usage
+~~~~~
+
+SpaceEngineersMap accepts the following options:
+
+[horizontal]
+`--savedir <path>`::
+    Saved Game Directory Path
+
+	Default: current working directory
+
+`--contentdir <path>`::
+    Path to Space Engineers content directory.  Required
+
+`--outdir <path>`::
+	Directory in which to output maps
+
+	Default: current working directory
+
+`--rotate <map>:<direction>`::
+    Rotate maps selected direction
+
+	Map names are the faces of a cube (up/down/left/right/front/back), 
+	with up being south and down being north.
+
+	Possible directions:
+
+	`cw` / `90`;;
+		clockwise
+
+	`ccw` / `270`;;
+		counter-clockwise
+
+	`180`;;
+		180 degrees
+
+	Defaults: up:90 down:270 left:180 front:180 right:180 back:180
+
+`--tile <tiles>`::
+	Tile map top-to-bottom, left-to-right
+
+	Tiles are specified as comma-delimited rows of colon-delimited tile names
+
+	Tile names are the faces of a cube (up/down/left/right/front/back),
+	or `none` for a blank map in that tile.
+
+`--crop`::
+	Crop the tile maps to the area with GPS markers
+
+`--croptexture`::
+	Crop the tile maps to the area with GPS markers as 512x512 texture tiles
+	for episode maps and 1024x1024 texture tiles for the overall map
+
+`--texturesize <size>`::
+	Override the episode map texture size used by `--croptexture`
+
+`--fullmaptexturesize <size>`::
+	Override the overall map texture size used by `--croptexture`
+
+`--onsave`::
+	Watch the save directory and re-generate the maps on save.  Useful for
+	twitch streams.
+
+`--cropend`::
+	Only generate a single map centred on the latest GPS marker
+	(i.e. the marker with the latest part number and time).
+	Used with `--onsave` to have a map that updates when the game is saved.
+
+`--endsize <size>`::
+	Size of the area exported by `--cropend`
+
+GPS Markers
+~~~~~~~~~~~
+
+GPS markers are of the form `Ppp.hh.mm.ss`, with one of the following optional suffixes:
+
+Nothing::
+	Point to draw in path
+
+`%`::
+    Waypoint marker to draw on the map (drawn on path)
+
+`$`::
+	POI marker to draw on the map (drawn separate to path)
+
+`@`::
+	Path only drawn for episode map.
+	Starts at last normal path point, and does not affect normal path
+
+`@%`::
+	Waypoint marker for episode map only
+
+`@$`::
+	POI marker for episode map only
+
+GPS Descriptions
+~~~~~~~~~~~~~~~~
+
+GPS descriptions with one of the following prefixes are drawn on the map:
+
+`^>`::
+	Left-aligned, with bottom-left anchored above point
+
+`_>`::
+	Left-aligned, with bottom-left anchored to right of point
+
+`->`::
+	Left-aligned, with middle-left anchored to right of point
+
+`¯>`::
+	Left-aligned, with top-left anchored to right of point
+
+`v>`::
+	Left-aligned, with top-left anchored below point
+
+`^^`::
+	Centred, with bottom-centre anchored above point
+
+`vv`::
+	Centred, with top-centre anchored below point
+
+`<^`::
+	Right-aligned, with bottom-right anchored above point
+
+`_>`::
+	Right-aligned, with bottom-right anchored to left of point
+
+`->`::
+	Right-aligned, with middle-right anchored to left of point
+
+`¯>`::
+	Right-aligned, with top-right anchored to left of point
+
+`v>`::
+	Right-aligned, with top-right anchored below point
+
+New-lines and horizontal rules are also possible in the description.
+Encode a newline by using a double-space.
+Encode a horizontal rule by separating two parts with `/`
+
