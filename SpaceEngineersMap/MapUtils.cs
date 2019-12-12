@@ -247,17 +247,20 @@ namespace SpaceEngineersMap
                         }
                     }
 
-                    var endgps = gpsentlists[kvp.Key].Select(e => e.FirstOrDefault(g => g.Name == endname)).FirstOrDefault();
-
-                    if (endgps != null)
+                    if (opts.CropEnd)
                     {
-                        endgps = endgps.RotateFlip2D(opts.FaceRotations[kvp.Key]);
-                        var x = (float)(endgps.X + bmp.Width / 2);
-                        var y = (float)(endgps.Y + bmp.Height / 2);
+                        var endgps = gpsentlists[kvp.Key].Select(e => e.FirstOrDefault(g => g.Name == endname)).FirstOrDefault();
 
-                        if (x >= 0 && x < bmp.Width && y >= 0 && y < bmp.Height)
+                        if (endgps != null)
                         {
-                            mapbounds.AddRectangle(x - 1, y - 1, 2, 2);
+                            endgps = endgps.RotateFlip2D(opts.FaceRotations[kvp.Key]);
+                            var x = (float)(endgps.X + bmp.Width / 2);
+                            var y = (float)(endgps.Y + bmp.Height / 2);
+
+                            if (x >= 0 && x < bmp.Width && y >= 0 && y < bmp.Height)
+                            {
+                                mapbounds.AddRectangle(x - 1, y - 1, 2, 2);
+                            }
                         }
                     }
 
