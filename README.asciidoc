@@ -3,7 +3,7 @@
 SEMapGPSMod
 -----------
 
-This mod was created to assist in creating GPS markers while tracing [Splitsie's Wrong Way Down series](https://www.youtube.com/playlist?list=PLfMGCUepUcNwWdUdK2Df3i4AuK9Y7QBut)
+This mod was created to assist in creating GPS markers while tracing link:https://www.youtube.com/playlist?list=PLfMGCUepUcNwWdUdK2Df3i4AuK9Y7QBut[Splitsie's Wrong Way Down series]
 
 It accepts one command `/semapgps` with one of the following possible parameters:
 
@@ -133,7 +133,7 @@ GPS descriptions with one of the following prefixes are drawn on the map:
 `->`::
 	Left-aligned, with middle-left anchored to right of point
 
-`¯>`::
+`Â¯>`::
 	Left-aligned, with top-left anchored to right of point
 
 `v>`::
@@ -154,7 +154,7 @@ GPS descriptions with one of the following prefixes are drawn on the map:
 `->`::
 	Right-aligned, with middle-right anchored to left of point
 
-`¯>`::
+`Â¯>`::
 	Right-aligned, with top-right anchored to left of point
 
 `v>`::
