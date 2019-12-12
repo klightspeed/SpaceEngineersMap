@@ -22,26 +22,23 @@ Usage
 
 SpaceEngineersMap accepts the following options:
 
-[horizontal]
 `--savedir <path>`::
-    Saved Game Directory Path
-
+    Saved Game Directory Path.
 	Default: current working directory
 
 `--contentdir <path>`::
-    Path to Space Engineers content directory.  Required
+    Path to Space Engineers content directory.
+	Required
 
 `--outdir <path>`::
-	Directory in which to output maps
-
+	Directory in which to output maps.
 	Default: current working directory
 
 `--rotate <map>:<direction>`::
-    Rotate maps selected direction
-
+    Rotate maps selected direction.
 	Map names are the faces of a cube (up/down/left/right/front/back), 
 	with up being south and down being north.
-
+	Defaults: `up:90 down:270 left:180 front:180 right:180 back:180`;
 	Possible directions:
 
 	`cw` / `90`;;
@@ -53,13 +50,10 @@ SpaceEngineersMap accepts the following options:
 	`180`;;
 		180 degrees
 
-	Defaults: up:90 down:270 left:180 front:180 right:180 back:180
 
 `--tile <tiles>`::
-	Tile map top-to-bottom, left-to-right
-
-	Tiles are specified as comma-delimited rows of colon-delimited tile names
-
+	Tile map top-to-bottom, left-to-right.
+	Tiles are specified as comma-delimited rows of colon-delimited tile names.
 	Tile names are the faces of a cube (up/down/left/right/front/back),
 	or `none` for a blank map in that tile.
 
