@@ -184,7 +184,7 @@ namespace SpaceEngineersMap
                 var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
                 if (ent.Name.EndsWith("@") || ent.Name.EndsWith("@%"))
                 {
-                    if (ent.Name.StartsWith(Prefix) && Prefix != "")
+                    if (Math.Abs(nextpoint.X - altpoint.X) < Bitmap.Width && Math.Abs(nextpoint.Y - altpoint.Y) < Bitmap.Height && ent.Name.StartsWith(Prefix) && Prefix != "")
                     {
                         Graphics.DrawLine(AltPen, altpoint, nextpoint);
                         using (var path = new GraphicsPath())
@@ -201,7 +201,7 @@ namespace SpaceEngineersMap
                 }
                 else if (!ent.Name.EndsWith("$") && !ent.Name.EndsWith("#"))
                 {
-                    if (ent.Name.StartsWith(Prefix))
+                    if (Math.Abs(nextpoint.X - point.X) < Bitmap.Width && Math.Abs(nextpoint.Y - point.Y) < Bitmap.Height && ent.Name.StartsWith(Prefix))
                     {
                         Graphics.DrawLine(TravelPen, point, nextpoint);
                         using (var path = new GraphicsPath())

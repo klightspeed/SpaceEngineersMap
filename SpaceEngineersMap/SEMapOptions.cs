@@ -13,11 +13,14 @@ namespace SpaceEngineersMap
         public string SaveDirectory { get; set; }
         public string ContentDirectory { get; set; }
         public string OutputDirectory { get; set; }
+        public string WorkshopDirectory { get; set; }
+        public string PlanetName { get; set; } = "EarthLike";
         public bool ShowHelp { get; set; }
         public bool CropTileMap { get; set; }
         public bool CropTexture { get; set; }
         public bool CropEnd { get; set; }
         public bool OnSave { get; set; }
+        public bool Rotate45 { get; set; }
         public int EndTextureSize { get; set; } = 256;
         public int EpisodeTextureSize { get; set; } = 512;
         public int FullMapTextureSize { get; set; } = 1024;
@@ -34,6 +37,7 @@ namespace SpaceEngineersMap
                 ShowHelp = false,
                 CropTileMap = false,
                 CropTexture = false,
+                Rotate45 = false,
                 TileFaces = new[]
                 {
                     new[] { CubeFace.None, CubeFace.Down, CubeFace.None, CubeFace.None },
@@ -63,6 +67,16 @@ namespace SpaceEngineersMap
                     opts.ContentDirectory = args[i + 1];
                     i++;
                 }
+                else if (args[i] == "--workshopdir" && i < args.Length - 1)
+                {
+                    opts.WorkshopDirectory = args[i + 1];
+                    i++;
+                }
+                else if (args[i] == "--planetname" && i < args.Length - 1)
+                {
+                    opts.PlanetName = args[i + 1];
+                    i++;
+                }
                 else if (args[i] == "--outdir" && i < args.Length - 1)
                 {
                     opts.OutputDirectory = args[i + 1];
@@ -75,22 +89,30 @@ namespace SpaceEngineersMap
                 }
                 else if (args[i] == "--rotate" && i < args.Length - 1)
                 {
-                    var rot = args[i + 1].Split(':');
-                    var face = MapUtils.GetFace(rot[0]);
-                    switch (rot[1])
+                    var rots = args[i + 1].Split(',');
+                    foreach (var xrot in rots)
                     {
-                        case "cw":
-                        case "90":
-                            opts.FaceRotations[face] = RotateFlipType.Rotate90FlipNone;
-                            break;
-                        case "ccw":
-                        case "270":
-                            opts.FaceRotations[face] = RotateFlipType.Rotate270FlipNone;
-                            break;
-                        case "180":
-                            opts.FaceRotations[face] = RotateFlipType.Rotate180FlipNone;
-                            break;
+                        var rot = xrot.Split(':');
+                        var face = MapUtils.GetFace(rot[0]);
+                        switch (rot[1])
+                        {
+                            case "0":
+                                opts.FaceRotations[face] = RotateFlipType.RotateNoneFlipNone;
+                                break;
+                            case "cw":
+                            case "90":
+                                opts.FaceRotations[face] = RotateFlipType.Rotate90FlipNone;
+                                break;
+                            case "ccw":
+                            case "270":
+                                opts.FaceRotations[face] = RotateFlipType.Rotate270FlipNone;
+                                break;
+                            case "180":
+                                opts.FaceRotations[face] = RotateFlipType.Rotate180FlipNone;
+                                break;
+                        }
                     }
+                    i++;
                 }
                 else if (args[i] == "--crop")
                 {
@@ -99,6 +121,10 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--croptexture")
                 {
                     opts.CropTexture = true;
+                }
+                else if (args[i] == "--rotate45")
+                {
+                    opts.Rotate45 = true;
                 }
                 else if (args[i] == "--texturesize" && i < args.Length - 1)
                 {

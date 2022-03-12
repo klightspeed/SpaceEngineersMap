@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MathNet.Spatial.Euclidean;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -17,79 +18,34 @@ namespace SpaceEngineersMap
         public string Description { get; set; }
         public bool ShowOnHud { get; set; }
 
-        public GpsEntry Project(int mult, int maxval, CubeFace face)
+        private Vector3D Rotate(Vector3D vector, Quaternion rotation)
         {
-            double v = 0;
-            double x = 0;
-            double y = 0;
-            
-            switch (face)
+            var u = new Vector3D(rotation.ImagX, rotation.ImagY, rotation.ImagZ);
+            var s = rotation.Real;
+
+            return 2 * u.DotProduct(vector) * u + (s * s - u.DotProduct(u)) * vector + 2 * s * u.CrossProduct(vector);
+        }
+
+        public GpsEntry Project(int mult, int maxval, Vector3D planetPos, Quaternion planetRotation, CubeFace face, bool rotate45)
+        {
+            var coords = Rotate(new Vector3D(X, Y, Z) - planetPos, planetRotation);
+            var projected = MapUtils.Project(coords, mult, maxval, face, rotate45);
+
+            if (double.IsNaN(projected.X))
             {
-                case CubeFace.Up:
-                    v = Y;
-                    x = -X;
-                    y = -Z;
-                    break;
-                case CubeFace.Down:
-                    v = -Y;
-                    x = X;
-                    y = -Z;
-                    break;
-                case CubeFace.Left:
-                    v = X;
-                    x = -Z;
-                    y = -Y;
-                    break;
-                case CubeFace.Right:
-                    v = -X;
-                    x = Z;
-                    y = -Y;
-                    break;
-                case CubeFace.Front:
-                    v = -Z;
-                    x = -X;
-                    y = Y;
-                    break;
-                case CubeFace.Back:
-                    v = Z;
-                    x = X;
-                    y = Y;
-                    break;
-            }
-
-            if (v > maxval / mult)
-            {
-                double div = mult / v;
-                x *= div;
-                y *= div;
-
-                if (Math.Abs(x) > mult)
-                {
-                    double mult2 = mult / Math.Abs(x);
-                    x = mult * (2 - mult2) * Math.Sign(x);
-                    y *= mult2;
-                }
-
-                if (Math.Abs(y) > mult)
-                {
-                    double mult2 = mult / Math.Abs(y);
-                    x *= mult2;
-                    y = mult * (2 - mult2) * Math.Sign(y);
-                }
-
-                return new GpsEntry
-                {
-                    Name = Name,
-                    X = x,
-                    Y = y,
-                    Z = mult,
-                    Description = Description,
-                    ShowOnHud = ShowOnHud
-                };
+                return null;
             }
             else
             {
-                return null;
+                return new GpsEntry
+                {
+                    Name = Name,
+                    X = projected.X,
+                    Y = projected.Y,
+                    Z = projected.Z,
+                    Description = Description,
+                    ShowOnHud = ShowOnHud
+                };
             }
         }
 

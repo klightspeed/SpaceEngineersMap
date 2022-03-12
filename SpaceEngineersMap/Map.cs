@@ -12,6 +12,7 @@ namespace SpaceEngineersMap
 {
     public class Map
     {
+        public string Name { get; set; }
         public ushort[][] Heights { get; set; }
         public MapMaterial[][] Materials { get; set; }
 
@@ -24,13 +25,14 @@ namespace SpaceEngineersMap
             {
                 BitmapDecoder hmapdecoder = BitmapDecoder.Create(f, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.Default);
                 BitmapSource hmapsource = hmapdecoder.Frames[0];
+                int pixsize = hmapsource.Format.BitsPerPixel / 8;
 
                 hmaprows = new ushort[hmapsource.PixelHeight + 2][];
                 hmaprows[0] = new ushort[hmapsource.PixelWidth + 2];
                 hmaprows[hmapsource.PixelHeight + 1] = new ushort[hmapsource.PixelWidth + 2];
 
-                var hmapdata = new byte[hmapsource.PixelWidth * hmapsource.PixelHeight * 2];
-                hmapsource.CopyPixels(hmapdata, hmapsource.PixelWidth * 2, 0);
+                var hmapdata = new byte[hmapsource.PixelWidth * hmapsource.PixelHeight * pixsize];
+                hmapsource.CopyPixels(hmapdata, hmapsource.PixelWidth * pixsize, 0);
 
                 for (int i = 0; i < hmapsource.PixelHeight; i++)
                 {
@@ -38,7 +40,7 @@ namespace SpaceEngineersMap
 
                     for (int j = 0; j < hmapsource.PixelWidth; j++)
                     {
-                        hmaprows[i + 1][j + 1] = BitConverter.ToUInt16(hmapdata, i * hmapsource.PixelWidth * 2 + j * 2);
+                        hmaprows[i + 1][j + 1] = BitConverter.ToUInt16(hmapdata, i * hmapsource.PixelWidth * pixsize + j * pixsize);
                     }
                 }
             }
@@ -71,6 +73,7 @@ namespace SpaceEngineersMap
 
             return new Map
             {
+                Name = name,
                 Heights = hmaprows,
                 Materials = mmaprows
             };
@@ -89,6 +92,12 @@ namespace SpaceEngineersMap
                 this.Heights[ya][xa] = other.Heights[yb][xb];
                 this.Materials[ya][xa] = other.Materials[yb][xb];
             }
+        }
+
+        private bool IsSeaLevelIce(int x, int y, int width, int height)
+        {
+            return !new[] { "up", "down" }.Any(e => e.Equals(Name, StringComparison.OrdinalIgnoreCase)) &&
+                   Math.Pow(y - height / 2, 2) * 3 < Math.Pow(width / 2, 2) + Math.Pow(x - width / 2, 2);
         }
 
         public Bitmap CreateContourMap()
@@ -118,6 +127,7 @@ namespace SpaceEngineersMap
                     int lo = lvs[0] * 78 / 65536 + 2;
                     int hi = lvs[8] * 78 / 65536 + 2;
                     int mid = hrow[j + 1] * 78 / 65536 + 2;
+                    int height = hrow[j + 1];
 
                     byte mat = mrow[j + 1].ComplexMaterial;
 
@@ -154,7 +164,7 @@ namespace SpaceEngineersMap
                             pxb = 32;
                         }
                     }
-                    else if (mat == 82)
+                    else if (mat == 82 || (mat == 0 && height <= 16 && IsSeaLevelIce(j, i, w, w)))
                     {
                         pxr = ice.R;
                         pxg = ice.G;

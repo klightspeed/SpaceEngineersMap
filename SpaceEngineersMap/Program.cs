@@ -101,13 +101,13 @@ namespace SpaceEngineersMap
             }
 
             Console.WriteLine("Creating contour maps");
-            var contourmaps = MapUtils.GetContourMaps(opts.ContentDirectory);
+            var contourmaps = MapUtils.GetContourMaps(opts.SaveDirectory, opts.ContentDirectory, opts.WorkshopDirectory, opts.PlanetName, opts.Rotate45);
             DateTime filesavetime = default;
 
             while (WaitForSave(opts.SaveDirectory, ref filesavetime))
             {
                 Console.WriteLine("Getting GPS entries");
-                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, out var endname);
+                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, out var endname);
                 var segments = GetSegmentPrefixes(gpsentlists);
 
                 foreach (var segment in segments)
