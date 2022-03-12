@@ -15,8 +15,8 @@ namespace SEMapGPSMod
     {
         private string Part;
         private TimeSpan PartTime;
-        private Regex NameRegex = new Regex(@"P\d\d.\d\d.\d\d.\d\d");
-        private Regex AddSecondRegex = new Regex(@"[+]\d\d");
+        private readonly Regex NameRegex = new Regex(@"P\d\d.\d\d.\d\d.\d\d[$%#@]*");
+        private readonly Regex AddSecondRegex = new Regex(@"[+]\d\d[$%#@]*");
         private bool IsInitialized;
 
         protected override void UnloadData()
@@ -64,10 +64,9 @@ namespace SEMapGPSMod
             if (NameRegex.IsMatch(name))
             {
                 var parts = name.Split('.');
-                string timestr = $"{parts[1]}:{parts[2]}:{parts[3]}";
-                TimeSpan time;
+                string timestr = $"{parts[1]}:{parts[2]}:{parts[3].Substring(0, 2)}";
 
-                if (TimeSpan.TryParse(timestr, CultureInfo.InvariantCulture, out time))
+                if (TimeSpan.TryParse(timestr, CultureInfo.InvariantCulture, out TimeSpan time))
                 {
                     Part = parts[0];
                     PartTime = time;
@@ -80,9 +79,9 @@ namespace SEMapGPSMod
             }
             else if (AddSecondRegex.IsMatch(name))
             {
-                int seconds = int.Parse(name.Substring(1));
+                int seconds = int.Parse(name.Substring(1, 2));
                 PartTime += new TimeSpan(0, 0, seconds);
-                name = $"{Part}.{PartTime.Hours:00}.{PartTime.Minutes:00}.{PartTime.Seconds:00}";
+                name = $"{Part}.{PartTime.Hours:00}.{PartTime.Minutes:00}.{PartTime.Seconds:00}{name.Substring(3)}";
                 AddSEMapGPS(name, desc);
             }
             else
