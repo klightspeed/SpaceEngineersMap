@@ -5,13 +5,15 @@ SEMapGPSMod
 
 This mod was created to assist in creating GPS markers while tracing link:https://www.youtube.com/playlist?list=PLfMGCUepUcNwWdUdK2Df3i4AuK9Y7QBut[Splitsie's Wrong Way Down series]
 
-It accepts one command `/semapgps` with one of the following possible parameters:
+Commands:
 
-`P01.02.03.04`::
-	Creates a GPS marker specifying a point in time, with the format `Ppp.hh.mm.ss`
+`/semapgps P01.02.03.04 [Description]`::
+    Creates a GPS marker specifying a point in time, with the format `Ppp.hh.mm.ss`,
+	optionally followed by one of the flags under link:gps-markers[GPS Markers], with an optional description
 
-`+05`::
-	Creates a GPS marker specifying a point in time the specified number of seconds (00s - 99s) after the last created GPS marker
+`/semapgps +05 [Description]`::
+	Creates a GPS marker specifying a point in time the specified number of seconds (00s - 99s) after the last created GPS marker,
+	optionally followed by one of the flags under link:gps-markers[GPS Markers], with an optional description
 
 These GPS markers are used by the main SpaceEngineersMap program.
 
@@ -35,6 +37,18 @@ Default: current working directory
     Path to Space Engineers content directory.
 +
 Required
++
+e.g. `%PROGRAMFILES%\Steam\SteamApps\common\SpaceEngineers\Content`
+
+`--workshopdir <path>`::
+    Path to Space Engineers workshop directory.
++
+e.g. `%PROGRAMFILES%\Steam\SteamApps\workshop\content\244850`
+
+`--planetname <name>`::
+    Name of the planet for which the map should be made
++
+Default: EarthLike
 
 `--outdir <path>`::
 	Directory in which to output maps.
@@ -50,6 +64,8 @@ with up being south and down being north.
 Defaults: `up:90 down:270 left:180 front:180 right:180 back:180`;
 +
 Possible directions:
+	`0`::
+		No rotation
 
 	`cw` / `90`;;
 		clockwise
@@ -68,6 +84,9 @@ Tiles are specified as comma-delimited rows of colon-delimited tile names.
 +
 Tile names are the faces of a cube (up/down/left/right/front/back),
 or `none` for a blank map in that tile.
+
+`--rotate45`::
+	Rotate the cubemap 45 degrees around the planet's axis
 
 `--crop`::
 	Crop the tile maps to the area with GPS markers
@@ -102,11 +121,17 @@ GPS markers are of the form `Ppp.hh.mm.ss`, with one of the following optional s
 Nothing::
 	Point to draw in path
 
+`^`::
+	Restart path at current waypoint
+
 `%`::
     Waypoint marker to draw on the map (drawn on path)
 
 `$`::
 	POI marker to draw on the map (drawn separate to path)
+
+`#`::
+	POI name without marker (drawn separate to path)
 
 `@`::
 	Path only drawn for episode map.
@@ -118,6 +143,9 @@ Starts at last normal path point, and does not affect normal path
 
 `@$`::
 	POI marker for episode map only
+
+`@#`::
+	POI name without marker for episode map only
 
 GPS Descriptions
 ~~~~~~~~~~~~~~~~
@@ -162,7 +190,12 @@ GPS descriptions with one of the following prefixes are drawn on the map:
 
 New-lines and horizontal rules are also possible in the description.
 
-Encode a newline by using a double-space.
+For 1.193 and later:
 
-Encode a horizontal rule by separating two parts with `/`
+* Newlines in the description should carry over to the map
+* Horizontal rules can be encoded using `----` on a line on its own
 
+For 1.192 and earlier:
+
+* Encode a newline by using a double-space.
+* Encode a horizontal rule by separating two parts with `/`
