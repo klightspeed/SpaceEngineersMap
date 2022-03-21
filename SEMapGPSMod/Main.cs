@@ -65,8 +65,9 @@ namespace SEMapGPSMod
             {
                 var parts = name.Split('.');
                 string timestr = $"{parts[1]}:{parts[2]}:{parts[3].Substring(0, 2)}";
+                TimeSpan time;
 
-                if (TimeSpan.TryParse(timestr, CultureInfo.InvariantCulture, out TimeSpan time))
+                if (TimeSpan.TryParse(timestr, CultureInfo.InvariantCulture, out time))
                 {
                     Part = parts[0];
                     PartTime = time;

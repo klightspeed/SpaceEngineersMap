@@ -53,7 +53,7 @@ namespace SpaceEngineersMap
                         var positionAndOrientation = obj.Element("PositionAndOrientation");
                         var positionElement = positionAndOrientation.Element("Position");
                         var orientationElement = positionAndOrientation.Element("Orientation");
-                        var radius = double.Parse(obj.Element("Radius").Value);
+                        var radius = double.Parse(obj.Element("MaximumHillRadius").Value);
                         double size = 128;
                         while (size < radius) size *= 2;
 
@@ -306,7 +306,8 @@ namespace SpaceEngineersMap
                 {
                     Heights = new ushort[w + 2][],
                     Materials = new MapMaterial[w + 2][],
-                    Name = facename
+                    Name = facename,
+                    Face = face
                 };
 
                 map.Heights[0] = new ushort[w + 2];
@@ -450,12 +451,12 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static Dictionary<CubeFace, Bitmap> GetContourMaps(string savedir, string contentdir, string workshopdir, string planetname, bool rotate45)
+        public static Dictionary<CubeFace, Bitmap> GetContourMaps(SEMapOptions options)
         {
-            var planetdir = FindPlanetDir(savedir, contentdir, workshopdir, planetname);
+            var planetdir = FindPlanetDir(options.SaveDirectory, options.ContentDirectory, options.WorkshopDirectory, options.PlanetName);
             var maps = Faces.ToDictionary(f => f, f => Map.Load(planetdir, f));
 
-            if (rotate45)
+            if (options.Rotate45)
             {
                 CopyMapEdges(maps);
                 maps = RotateMap45(maps);
@@ -463,7 +464,7 @@ namespace SpaceEngineersMap
 
             CopyMapEdges(maps);
 
-            var contourmaps = maps.ToDictionary(kvp => GetFace(kvp.Key), kvp => kvp.Value.CreateContourMap());
+            var contourmaps = maps.ToDictionary(kvp => GetFace(kvp.Key), kvp => kvp.Value.CreateContourMap(options));
             return contourmaps;
         }
 
@@ -572,7 +573,7 @@ namespace SpaceEngineersMap
                 {
                     var bmp = (Bitmap)kvp.Value.Clone();
                     maps[kvp.Key] = bmp;
-                    bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
+                    //bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
                     var mapbounds = new Bounds(new RectangleF(0, 0, bmp.Width, bmp.Height));
 
                     foreach (var gpsents in gpsentlists[kvp.Key])

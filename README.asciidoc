@@ -95,6 +95,15 @@ or `none` for a blank map in that tile.
 	Crop the tile maps to the area with GPS markers as 512x512 texture tiles
 	for episode maps and 1024x1024 texture tiles for the overall map
 
+`--nocontourlines`::
+	Disable contour lines in map
+
+`--slopeshading`::
+    Enable slope-based shading
+
+`--reliefshading`::
+    Enable relief shading
+
 `--texturesize <size>`::
 	Override the episode map texture size used by `--croptexture`
 

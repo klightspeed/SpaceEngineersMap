@@ -21,6 +21,9 @@ namespace SpaceEngineersMap
         public bool CropEnd { get; set; }
         public bool OnSave { get; set; }
         public bool Rotate45 { get; set; }
+        public bool ContourLines { get; set; } = true;
+        public bool SlopeShading { get; set; } = false;
+        public bool ReliefShading { get; set; } = false;
         public int EndTextureSize { get; set; } = 256;
         public int EpisodeTextureSize { get; set; } = 512;
         public int FullMapTextureSize { get; set; } = 1024;
@@ -148,6 +151,30 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--onsave")
                 {
                     opts.OnSave = true;
+                }
+                else if (args[i] == "--contourlines")
+                {
+                    opts.ContourLines = true;
+                }
+                else if (args[i] == "--nocontourlines")
+                {
+                    opts.ContourLines = false;
+                }
+                else if (args[i] == "--slopeshading")
+                {
+                    opts.SlopeShading = true;
+                }
+                else if (args[i] == "--noslopeshading")
+                {
+                    opts.SlopeShading = false;
+                }
+                else if (args[i] == "--reliefshading")
+                {
+                    opts.ReliefShading = true;
+                }
+                else if (args[i] == "--noreliefshading")
+                {
+                    opts.ReliefShading = false;
                 }
                 else if (args[i] == "--help" || args[i] == "/?")
                 {

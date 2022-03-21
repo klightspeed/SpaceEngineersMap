@@ -101,7 +101,7 @@ namespace SpaceEngineersMap
             }
 
             Console.WriteLine("Creating contour maps");
-            var contourmaps = MapUtils.GetContourMaps(opts.SaveDirectory, opts.ContentDirectory, opts.WorkshopDirectory, opts.PlanetName, opts.Rotate45);
+            var contourmaps = MapUtils.GetContourMaps(opts);
             DateTime filesavetime = default;
 
             while (WaitForSave(opts.SaveDirectory, ref filesavetime))
