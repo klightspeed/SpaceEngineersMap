@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="libpng" Version="1.6.28.1" />
     <PackageReference Include="MathNet.Spatial" Version="0.6.0" />
     <PackageReference Include="System.Drawing.Common" Version="4.5.1" />
   </ItemGroup>
