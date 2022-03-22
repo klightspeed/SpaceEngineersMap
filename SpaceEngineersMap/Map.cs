@@ -216,8 +216,9 @@ namespace SpaceEngineersMap
                     {
                         var v1 = (hrow[j + 2] * 4 + hup[j + 2] * 2 + hup[j + 1] + hdn[j + 2]) / 8;
                         var v2 = (hrow[j + 0] * 4 + hdn[j + 0] * 2 + hdn[j + 1] + hup[j + 0]) / 8;
+                        var v = Math.Atan((v1 - v2) / 192.0) * 128.0 / Math.PI;
                         int px1 = (int)Math.Floor(((hrow[j + 1] * 78.0 / 65536 + 2) / 4) * 6);
-                        int px3 = 127 - (int)Math.Max(0, Math.Min(127, (v1 - v2) / 6.0 + 64));
+                        int px3 = 127 - (int)Math.Max(0, Math.Min(127, v + 64));
                         pxr = (byte)(px1 + px3 * 3 / 4 + 32);
                         pxg = (byte)(px3 + 128);
                         pxb = (byte)(px3 * 3 / 4 + 96 - px1 / 2);
