@@ -260,9 +260,9 @@ namespace SpaceEngineersMap
                         }
                         else
                         {
-                            pxr = (byte)(pxr / 2 + 32);
+                            pxr = (byte)(pxr / 2 + 16);
                             pxg = (byte)(pxg / 2 + 64);
-                            pxb = (byte)(pxb / 2 + 32);
+                            pxb = (byte)(pxb / 2 + 16);
                         }
                     }
 

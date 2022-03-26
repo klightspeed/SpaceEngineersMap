@@ -139,7 +139,7 @@ Nothing::
 `$`::
 	POI marker to draw on the map (drawn separate to path)
 
-`#`::
+`=`::
 	POI name without marker (drawn separate to path)
 
 `@`::

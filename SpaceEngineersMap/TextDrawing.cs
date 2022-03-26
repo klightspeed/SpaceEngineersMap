@@ -67,6 +67,7 @@ namespace SpaceEngineersMap
             public static PointF Left = new PointF(-1, 0);
             public static PointF Right = new PointF(1, 0);
             public static PointF Bottom = new PointF(0, 1);
+            public static PointF Center = new PointF(0, 0);
         }
 
         private static class Align
@@ -79,6 +80,7 @@ namespace SpaceEngineersMap
             public static SizeF BottomLeft = new SizeF(0, 1);
             public static SizeF BottomCentre = new SizeF(0.5f, 1);
             public static SizeF BottomRight = new SizeF(1, 1);
+            public static SizeF Center = new SizeF(0.5f, 0.5f);
         }
 
         private static Dictionary<string, StringAttach> CommandAttachments = new Dictionary<string, StringAttach>
@@ -94,7 +96,8 @@ namespace SpaceEngineersMap
             ["<_"] = new StringAttach(Attach.Left, Align.BottomRight),
             ["<v"] = new StringAttach(Attach.Bottom, Align.TopRight),
             ["^^"] = new StringAttach(Attach.Top, Align.BottomCentre),
-            ["vv"] = new StringAttach(Attach.Bottom, Align.TopCentre)
+            ["vv"] = new StringAttach(Attach.Bottom, Align.TopCentre),
+            ["xx"] = new StringAttach(Attach.Center, Align.Center)
         };
 
 

@@ -22,8 +22,11 @@ namespace SpaceEngineersMap
         private Pen AltPen;
         private Brush POIBrush;
         private Brush POI2Brush;
+        private Brush POI3Brush;
         private Font TextFont;
         private Brush TextBrush;
+        private Font Text2Font;
+        private Brush Text2Brush;
         private Pen TextOutlinePen;
 
         public MapDrawer(Bitmap bmp, List<GpsEntry> entries, RotateFlipType rotation, CubeFace face, string prefix)
@@ -59,8 +62,11 @@ namespace SpaceEngineersMap
             };
             POIBrush = new SolidBrush(Color.DarkViolet);
             POI2Brush = new SolidBrush(Color.DarkGreen);
+            POI3Brush = new SolidBrush(Color.DarkRed);
             TextFont = new Font(FontFamily.GenericSansSerif, 12.0f, GraphicsUnit.Pixel);
             TextBrush = new SolidBrush(Color.Black);
+            Text2Font = new Font(FontFamily.GenericSerif, 12.0f, GraphicsUnit.Pixel);
+            Text2Brush = new SolidBrush(Color.DarkRed);
             TextOutlinePen = new Pen(Color.White, 4.0f)
             {
                 LineJoin = LineJoin.Round,
@@ -152,7 +158,13 @@ namespace SpaceEngineersMap
                     }
                     else if (ent.Name.EndsWith("$"))
                     {
-                        Graphics.FillEllipse(POI2Brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
+                        var brush = POI2Brush;
+                        if (ent.Description.StartsWith("[Bot]"))
+                        {
+                            brush = POI3Brush;
+                        }
+
+                        Graphics.FillEllipse(brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
                         BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
                     }
                     else if (ent.Name.EndsWith("@%"))
@@ -199,7 +211,7 @@ namespace SpaceEngineersMap
                 {
                     altpoint = point = nextpoint;
                 }
-                else if (!ent.Name.EndsWith("$") && !ent.Name.EndsWith("#"))
+                else if (!ent.Name.EndsWith("$") && !ent.Name.EndsWith("="))
                 {
                     if (Math.Abs(nextpoint.X - point.X) < Bitmap.Width && Math.Abs(nextpoint.Y - point.Y) < Bitmap.Height && ent.Name.StartsWith(Prefix))
                     {
@@ -228,7 +240,19 @@ namespace SpaceEngineersMap
                         bool hidepart1 = !ent.Name.StartsWith(Prefix);
                         bool hidepart2 = !ent.Name.Contains("-" + Prefix);
 
-                        var textbounds = TextDrawing.DrawText(Graphics, ent.Description, nextpoint, TextFont, TextBrush, TextOutlinePen, hidepart1, hidepart2);
+                        var font = TextFont;
+                        var brush = TextBrush;
+                        var outlinepen = TextOutlinePen;
+                        var description = ent.Description;
+
+                        if (description.StartsWith("[Bot]"))
+                        {
+                            font = Text2Font;
+                            brush = Text2Brush;
+                            description = description.Substring(5);
+                        }
+
+                        var textbounds = TextDrawing.DrawText(Graphics, description, nextpoint, font, brush, outlinepen, hidepart1, hidepart2);
                         if (textbounds is RectangleF rect)
                         {
                             BoundsRegion.Union(rect);

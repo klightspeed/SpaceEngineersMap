@@ -56,6 +56,60 @@ namespace SpaceEngineersMap
             Console.WriteLine();
         }
 
+        static void SavePOIList(Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, string segment, string segdir)
+        {
+            var gpsents =
+                gpsentlists
+                    .Values
+                    .SelectMany(e => e)
+                    .SelectMany(e => e)
+                    .Select(e => (e.Name, e.Description))
+                    .OrderBy(e => e.Name)
+                    .Distinct()
+                    .ToList();
+
+            using (var logfile = File.Open(Path.Combine(segdir, "POIs.txt"), FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read))
+            {
+                using (var logwriter = new StreamWriter(logfile))
+                {
+                    foreach (var (name, desc) in gpsents)
+                    {
+                        if (!string.IsNullOrWhiteSpace(desc) && desc != "Current position")
+                        {
+                            if ((name.StartsWith(segment) || name.Contains("-" + segment)))
+                            {
+                                bool hidepart1 = !name.StartsWith(segment);
+                                bool hidepart2 = !name.Contains("-" + segment);
+                                var timestamp = name.TrimEnd('%', '=', '@', '$', '^');
+                                var description = desc;
+
+                                if (description.StartsWith("[Bot]"))
+                                {
+                                    description = description.Substring(5).TrimStart();
+                                }
+
+                                var cmdarg = description.Split(new[] { ' ' }, 2);
+                                var sections = cmdarg[1].Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None).Select(e => e.Trim()).ToArray();
+
+                                if (hidepart1 && !hidepart2 && sections.Length > 1)
+                                {
+                                    sections = sections.Skip(1).ToArray();
+                                }
+                                else if (hidepart2 && !hidepart1)
+                                {
+                                    sections = new[] { sections[0] };
+                                }
+
+                                description = string.Join(" / ", sections).Replace("\n", " ").Replace("  ", " ");
+
+                                logwriter.WriteLine($"[{timestamp}] {description}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         static bool WaitForSave(string path, ref DateTime filesavetime)
         {
             while (true)
@@ -128,6 +182,7 @@ namespace SpaceEngineersMap
                         }
 
                         MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment, segdir, endname);
+                        SavePOIList(gpsentlists, segment, segdir);
                     }
                 }
 
