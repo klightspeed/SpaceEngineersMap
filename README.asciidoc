@@ -64,7 +64,7 @@ with up being south and down being north.
 Defaults: `up:90 down:270 left:180 front:180 right:180 back:180`;
 +
 Possible directions:
-	`0`::
+	`0`;;
 		No rotation
 
 	`cw` / `90`;;
