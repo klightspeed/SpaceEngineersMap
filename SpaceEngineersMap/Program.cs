@@ -11,10 +11,24 @@ namespace SpaceEngineersMap
 {
     class Program
     {
-        static string[] GetSegmentPrefixes(Dictionary<CubeFace, List<List<GpsEntry>>> gpsentries)
+        static Regex ChapterRE = new Regex(@"P(\d\d)-(\d\d)");
+
+        static (string name, string[] prefixes)[] GetSegmentPrefixes(Dictionary<CubeFace, List<List<GpsEntry>>> gpsentries, string[] chapterparts)
         {
             var entries = gpsentries.Values.SelectMany(l1 => l1.SelectMany(l2 => l2)).ToList();
-            return new[] { "" }.Concat(entries.Select(e => e.Name.Substring(0, 3)).Distinct()).ToArray();
+            var segments = entries.Select(e => e.Name.Substring(0, 3)).Distinct().ToArray();
+            var prefixlists = new List<(string name, string[] prefixes)>();
+            prefixlists.Add(("", new string[0]));
+            prefixlists.AddRange(segments.Select(e => (e, new string[] { e })));
+
+            foreach (var chapter in chapterparts)
+            {
+                if (ChapterRE.Match(chapter) is Match match && match.Success)
+                {
+                    prefixlists.Add((chapter, segments.Where(e => e.CompareTo($"P{match.Groups[1].Value}") >= 0 && e.CompareTo($"P{match.Groups[2].Value}") <= 0).ToArray()));
+                }
+            }
+            return prefixlists.ToArray();
         }
 
         static void ShowHelp()
@@ -56,7 +70,7 @@ namespace SpaceEngineersMap
             Console.WriteLine();
         }
 
-        static void SavePOIList(Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, string segment, string segdir)
+        static void SavePOIList(Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, string[] segments, string segdir)
         {
             var gpsents =
                 gpsentlists
@@ -76,10 +90,10 @@ namespace SpaceEngineersMap
                     {
                         if (!string.IsNullOrWhiteSpace(desc) && desc != "Current position")
                         {
-                            if ((name.StartsWith(segment) || name.Contains("-" + segment)))
+                            if (segments.Length == 0 || segments.Any(p => name.StartsWith(p) || name.Contains("-" + p)))
                             {
-                                bool hidepart1 = !name.StartsWith(segment);
-                                bool hidepart2 = !name.Contains("-" + segment);
+                                bool hidepart1 = segments.Length != 0 && !segments.Any(p => name.StartsWith(p));
+                                bool hidepart2 = segments.Length != 0 && !segments.Any(p => name.Contains("-" + p));
                                 var timestamp = name.TrimEnd('%', '=', '@', '$', '^');
                                 var description = desc;
 
@@ -162,18 +176,18 @@ namespace SpaceEngineersMap
             {
                 Console.WriteLine("Getting GPS entries");
                 var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, out var endname);
-                var segments = GetSegmentPrefixes(gpsentlists);
+                var segments = GetSegmentPrefixes(gpsentlists, opts.ChapterParts);
 
                 foreach (var segment in segments)
                 {
-                    if (segment == "" || !opts.CropEnd)
+                    if (segment.prefixes.Length == 0 || !opts.CropEnd)
                     {
-                        Console.WriteLine($"Processing segment {segment}");
+                        Console.WriteLine($"Processing segment {segment.name}");
                         string segdir = opts.OutputDirectory;
 
-                        if (segment != "")
+                        if (segment.prefixes.Length != 0)
                         {
-                            segdir = Path.Combine(segdir, segment);
+                            segdir = Path.Combine(segdir, segment.name);
                         }
 
                         if (!Directory.Exists(segdir))
@@ -181,8 +195,8 @@ namespace SpaceEngineersMap
                             Directory.CreateDirectory(segdir);
                         }
 
-                        MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment, segdir, endname);
-                        SavePOIList(gpsentlists, segment, segdir);
+                        MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment.prefixes, segdir, endname);
+                        SavePOIList(gpsentlists, segment.prefixes, segdir);
                     }
                 }
 

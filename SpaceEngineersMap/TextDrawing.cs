@@ -119,7 +119,7 @@ namespace SpaceEngineersMap
                     LineAlignment = valign
                 };
 
-                var sections = cmdarg[1].Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None).Select(e => e.Trim()).ToArray();
+                var sections = cmdarg[1].Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None).Select(e => e.Trim(' ')).ToArray();
 
                 if (hidepart1 && !hidepart2 && sections.Length > 1)
                 {
@@ -130,7 +130,7 @@ namespace SpaceEngineersMap
                     sections = new[] { sections[0] };
                 }
 
-                var sectionlines = sections.Select(s => s.Split(new[] { "  ", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim()).ToArray()).ToArray();
+                var sectionlines = sections.Select(s => s.Split(new[] { "  ", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim(' ')).ToArray()).ToArray();
                 var lines = sectionlines.SelectMany(l => l).ToArray();
                 var hrules = sectionlines.Select(s => s.Length).ToArray();
 

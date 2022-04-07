@@ -15,6 +15,7 @@ namespace SpaceEngineersMap
         public string OutputDirectory { get; set; }
         public string WorkshopDirectory { get; set; }
         public string PlanetName { get; set; } = "EarthLike";
+        public string[] ChapterParts { get; set; }
         public bool ShowHelp { get; set; }
         public bool CropTileMap { get; set; }
         public bool CropTexture { get; set; }
@@ -41,6 +42,7 @@ namespace SpaceEngineersMap
                 CropTileMap = false,
                 CropTexture = false,
                 Rotate45 = false,
+                ChapterParts = null,
                 TileFaces = new[]
                 {
                     new[] { CubeFace.None, CubeFace.Down, CubeFace.None, CubeFace.None },
@@ -57,6 +59,8 @@ namespace SpaceEngineersMap
                     [CubeFace.Back] = RotateFlipType.Rotate180FlipNone
                 }
             };
+
+            var chapterparts = new List<string>();
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -83,6 +87,11 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--outdir" && i < args.Length - 1)
                 {
                     opts.OutputDirectory = args[i + 1];
+                    i++;
+                }
+                else if (args[i] == "--chapter" && i < args.Length - 1)
+                {
+                    chapterparts.Add(args[i + 1]);
                     i++;
                 }
                 else if (args[i] == "--tile" && i < args.Length - 1)
@@ -196,6 +205,8 @@ namespace SpaceEngineersMap
                     break;
                 }
             }
+
+            opts.ChapterParts = chapterparts.ToArray();
 
             return opts;
         }

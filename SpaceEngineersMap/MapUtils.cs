@@ -112,9 +112,9 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static RectangleF? DrawGPS(Bitmap bmp, List<GpsEntry> entries, RotateFlipType rotation, CubeFace face, string prefix)
+        public static RectangleF? DrawGPS(Bitmap bmp, List<GpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes)
         {
-            using (var drawer = new MapDrawer(bmp, entries, rotation, face, prefix))
+            using (var drawer = new MapDrawer(bmp, entries, rotation, face, prefixes))
             {
                 drawer.Open();
                 drawer.DrawEdges();
@@ -150,11 +150,13 @@ namespace SpaceEngineersMap
 
                         foreach (var mod in mods)
                         {
-                            var modid = mod.Element("PublishedFileId")?.Value;
-
-                            if (modid != null)
+                            if (mod.Element("PublishedFileId")?.Value is string modid)
                             {
                                 modids.Add(modid);
+                            }
+                            else if (mod.Element("Name")?.Value is string modname && long.TryParse(modname.Replace(".sbm", ""), out _))
+                            {
+                                modids.Add(modname.Replace(".sbm", ""));
                             }
                         }
                     }
@@ -560,7 +562,7 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, SEMapOptions opts, string segment, string outdir, string endname)
+        public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, SEMapOptions opts, string[] segments, string outdir, string endname)
         {
             Dictionary<CubeFace, Bitmap> maps = new Dictionary<CubeFace, Bitmap>();
             Bitmap tilebmp = null;
@@ -578,7 +580,7 @@ namespace SpaceEngineersMap
 
                     foreach (var gpsents in gpsentlists[kvp.Key])
                     {
-                        var gpsboundsrect = MapUtils.DrawGPS(bmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segment);
+                        var gpsboundsrect = MapUtils.DrawGPS(bmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments);
 
                         if (!opts.CropEnd)
                         {
@@ -618,12 +620,12 @@ namespace SpaceEngineersMap
                 }
                 else
                 {
-                    tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
                     SaveBitmap(tilebmp, Path.Combine(outdir, "tilemap.png"));
 
                     if (opts.CropTexture)
                     {
-                        SaveTextures(tilebmp, Path.Combine(outdir, "texture"), "png", segment == "" ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                        SaveTextures(tilebmp, Path.Combine(outdir, "texture"), "png", segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
                     }
                 }
             }
