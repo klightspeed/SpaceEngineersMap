@@ -11,6 +11,8 @@ namespace SpaceEngineersMap
 {
     public class GpsEntry
     {
+        public string Owner { get; set; }
+        public bool IsPlayer { get; set; }
         public string Name { get; set; }
         public double X { get; set; }
         public double Y { get; set; }
@@ -39,6 +41,8 @@ namespace SpaceEngineersMap
             {
                 return new GpsEntry
                 {
+                    Owner = Owner,
+                    IsPlayer = IsPlayer,
                     Name = Name,
                     X = projected.X,
                     Y = projected.Y,
@@ -55,30 +59,32 @@ namespace SpaceEngineersMap
             {
                 case RotateFlipType.RotateNoneFlipNone:
                 default:
-                    return new GpsEntry { Name = Name, X = X, Y = Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = X, Y = Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
                 case RotateFlipType.Rotate90FlipNone:
-                    return new GpsEntry { Name = Name, X = -Y, Y = X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -Y, Y = X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
                 case RotateFlipType.Rotate180FlipNone:
-                    return new GpsEntry { Name = Name, X = -X, Y = -Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -X, Y = -Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
                 case RotateFlipType.Rotate270FlipNone:
-                    return new GpsEntry { Name = Name, X = Y, Y = -X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = Y, Y = -X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
                 case RotateFlipType.RotateNoneFlipX:
-                    return new GpsEntry { Name = Name, X = -X, Y = Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -X, Y = Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
                 case RotateFlipType.Rotate90FlipX:
-                    return new GpsEntry { Name = Name, X = Y, Y = X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = Y, Y = X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
                 case RotateFlipType.Rotate180FlipX:
-                    return new GpsEntry { Name = Name, X = X, Y = -Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = X, Y = -Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
                 case RotateFlipType.Rotate270FlipX:
-                    return new GpsEntry { Name = Name, X = -Y, Y = -X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
+                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -Y, Y = -X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
             }
         }
 
-        public static GpsEntry FromXML(XElement xe)
+        public static GpsEntry FromXML(XElement xe, string owner, bool isPlayer)
         {
             var coords = xe.Element("coords");
 
             return new GpsEntry
             {
+                Owner = owner,
+                IsPlayer = isPlayer,
                 Name = xe.Element("name").Value,
                 X = double.Parse(coords.Element("X").Value),
                 Y = double.Parse(coords.Element("Y").Value),

@@ -103,20 +103,24 @@ namespace SpaceEngineersMap
                                 }
 
                                 var cmdarg = description.Split(new[] { ' ' }, 2);
-                                var sections = cmdarg[1].Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None).Select(e => e.Trim()).ToArray();
 
-                                if (hidepart1 && !hidepart2 && sections.Length > 1)
+                                if (cmdarg.Length == 2)
                                 {
-                                    sections = sections.Skip(1).ToArray();
-                                }
-                                else if (hidepart2 && !hidepart1)
-                                {
-                                    sections = new[] { sections[0] };
-                                }
+                                    var sections = cmdarg[1].Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None).Select(e => e.Trim()).ToArray();
 
-                                description = string.Join(" / ", sections).Replace("\n", " ").Replace("  ", " ");
+                                    if (hidepart1 && !hidepart2 && sections.Length > 1)
+                                    {
+                                        sections = sections.Skip(1).ToArray();
+                                    }
+                                    else if (hidepart2 && !hidepart1)
+                                    {
+                                        sections = new[] { sections[0] };
+                                    }
 
-                                logwriter.WriteLine($"[{timestamp}] {description}");
+                                    description = string.Join(" / ", sections).Replace("\n", " ").Replace("  ", " ");
+
+                                    logwriter.WriteLine($"[{timestamp}] {description}");
+                                }
                             }
                         }
                     }
@@ -170,9 +174,9 @@ namespace SpaceEngineersMap
 
             Console.WriteLine("Creating contour maps");
             var contourmaps = MapUtils.GetContourMaps(opts);
-            DateTime filesavetime = default;
+            DateTime filesavetime = File.GetLastWriteTimeUtc(Path.Combine(opts.SaveDirectory, "Sandbox.sbc"));
 
-            while (WaitForSave(opts.SaveDirectory, ref filesavetime))
+            do
             {
                 Console.WriteLine("Getting GPS entries");
                 var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, out var endname);
@@ -207,6 +211,7 @@ namespace SpaceEngineersMap
                     break;
                 }
             }
+            while (WaitForSave(opts.SaveDirectory, ref filesavetime));
 
             Console.WriteLine("Exiting");
         }

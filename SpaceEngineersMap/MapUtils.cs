@@ -81,56 +81,45 @@ namespace SpaceEngineersMap
             var (planetPos, planetRot) = GetPlanetPositionAndOrientation(savedir, planetname);
             var namere = new Regex(@"^P\d\d\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(Path.Combine(savedir, "Sandbox.sbc"));
-            var items = xdoc.Root.Element("Gps").Element("dictionary").Elements("item").ToList();
-            var entlists = items.Select(i => i.Element("Value").Element("Entries").Elements("Entry").Select(e => GpsEntry.FromXML(e)).ToList()).ToList();
+
+            var playerEntity =
+                xdoc.Root
+                    .Element("ControlledObject")
+                   ?.Value;
+
+            var idents =
+                xdoc.Root
+                    .Element("Identities")
+                    .Elements("MyObjectBuilder_Identity")
+                    .ToDictionary(
+                        e => e.Element("IdentityId").Value,
+                        e => (
+                            Name: e.Element("DisplayName").Value,
+                            EntityId: e.Element("CharacterEntityId").Value
+                        )
+                    );
+
+            var items =
+                xdoc.Root
+                    .Element("Gps")
+                    .Element("dictionary")
+                    .Elements("item")
+                    .ToList();
+
+            var entlists =
+                items
+                    .Select(i => (
+                        IdentityId: i.Element("Key").Value,
+                        Identity: idents.TryGetValue(i.Element("Key").Value, out var ident) ? ident : default,
+                        Entries: i.Element("Value").Element("Entries").Elements("Entry").ToList()
+                    ))
+                    .Select(i => i.Entries.Select(e => GpsEntry.FromXML(e, i.Identity.Name, i.Identity.EntityId != "0")))
+                    .ToList();
             var gpsentlists = entlists.Select(ent => ent.Where(e => namere.IsMatch(e.Name)).OrderBy(e => e.Name).ToList()).ToList();
 
-            endname = gpsentlists.Where(e => e.Count >= 1).Select(e => e.Last().Name).FirstOrDefault();
+            endname = gpsentlists.Where(e => e.Count >= 1).Select(e => e.Last().Name).OrderByDescending(e => e).FirstOrDefault();
 
             return Faces.Select(f => GetFace(f)).ToDictionary(f => f, f => gpsentlists.Select(glist => glist.Select(g => g.Project(1024, 1024, planetPos, planetRot, f, rotate45)).Where(e => e != null).ToList()).ToList());
-        }
-
-        private static void DrawPOIs(Graphics g, List<GpsEntry> entries, RotateFlipType rotation, Region boundsregion, string prefix, float width, float height, Brush poibrush, Brush poi2brush)
-        {
-            for (int i = 0; i < entries.Count; i++)
-            {
-                var ent = entries[i].RotateFlip2D(rotation);
-                var nextpoint = new PointF((float)(ent.X + width / 2), (float)(ent.Y + height / 2));
-                if (ent.Name.StartsWith(prefix) || ent.Name.Contains("-" + prefix))
-                {
-                    if (ent.Name.EndsWith("$"))
-                    {
-                        g.FillEllipse(poi2brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                        boundsregion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
-                    }
-                    else if (ent.Name.EndsWith("%"))
-                    {
-                        g.FillEllipse(poibrush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                        boundsregion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
-                    }
-                }
-            }
-        }
-
-        public static RectangleF? DrawGPS(Bitmap bmp, List<GpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes)
-        {
-            using (var drawer = new MapDrawer(bmp, entries, rotation, face, prefixes))
-            {
-                drawer.Open();
-                drawer.DrawEdges();
-                drawer.DrawLatLonLines();
-                if (entries.Count >= 2)
-                {
-                    drawer.DrawPOIs();
-                    drawer.DrawPath();
-                    drawer.DrawPOIText();
-                    return drawer.GetBounds();
-                }
-                else
-                {
-                    return null;
-                }
-            }
         }
 
         private static List<string> GetInstalledModIds(string savedir)
@@ -578,13 +567,57 @@ namespace SpaceEngineersMap
                     //bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
                     var mapbounds = new Bounds(new RectangleF(0, 0, bmp.Width, bmp.Height));
 
-                    foreach (var gpsents in gpsentlists[kvp.Key])
+                    using (var drawer = new MapDrawer(bmp, new List<GpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments))
                     {
-                        var gpsboundsrect = MapUtils.DrawGPS(bmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments);
+                        drawer.Open();
+                        drawer.DrawEdges();
+                        drawer.DrawLatLonLines();
+                    }
 
-                        if (!opts.CropEnd)
+                    var drawers = new List<MapDrawer>();
+
+                    try
+                    {
+                        foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
                         {
-                            mapbounds.AddRectangle(gpsboundsrect);
+                            if (gpsents.Count >= 2)
+                            {
+                                var drawer = new MapDrawer(bmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments);
+                                drawers.Add(drawer);
+                                drawer.Open();
+                            }
+                        }
+
+                        foreach (var drawer in drawers)
+                        {
+                            drawer.DrawPOIs();
+                        }
+
+                        foreach (var drawer in drawers)
+                        {
+                            drawer.DrawPath();
+                        }
+
+                        foreach (var drawer in drawers)
+                        {
+                            drawer.DrawPOIText();
+                        }
+
+                        foreach (var drawer in drawers)
+                        {
+                            var gpsboundsrect = drawer.GetBounds();
+
+                            if (!opts.CropEnd)
+                            {
+                                mapbounds.AddRectangle(gpsboundsrect);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        foreach (var drawer in drawers)
+                        {
+                            drawer.Dispose();
                         }
                     }
 

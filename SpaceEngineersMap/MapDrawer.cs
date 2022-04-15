@@ -21,10 +21,13 @@ namespace SpaceEngineersMap
         private Pen TravelPen;
         private Pen TravelPen2;
         private Pen AltPen;
+        private Pen MissilePen;
+        private Pen BotPen;
         private Brush TickBrush;
         private Brush POIBrush;
         private Brush POI2Brush;
         private Brush POI3Brush;
+        private Brush POI4Brush;
         private Font TextFont;
         private Brush TextBrush;
         private Font Text2Font;
@@ -68,9 +71,22 @@ namespace SpaceEngineersMap
                 EndCap = LineCap.Round,
                 StartCap = LineCap.Round
             };
+            MissilePen = new Pen(Color.OrangeRed, 1.0f)
+            {
+                LineJoin = LineJoin.Round,
+                EndCap = LineCap.Round,
+                StartCap = LineCap.Round
+            };
+            BotPen = new Pen(Color.FromArgb(192, 64, 0), 2.0f)
+            {
+                LineJoin = LineJoin.Round,
+                EndCap = LineCap.Round,
+                StartCap = LineCap.Round
+            };
             POIBrush = new SolidBrush(Color.DarkViolet);
             POI2Brush = new SolidBrush(Color.DarkGreen);
             POI3Brush = new SolidBrush(Color.DarkRed);
+            POI4Brush = new SolidBrush(Color.DarkOrange);
             TickBrush = new SolidBrush(Color.LightCyan);
             TextFont = new Font(FontFamily.GenericSansSerif, 12.0f, GraphicsUnit.Pixel);
             TextBrush = new SolidBrush(Color.Black);
@@ -188,7 +204,27 @@ namespace SpaceEngineersMap
                                 brush = POI3Brush;
                             }
 
-                            Graphics.FillEllipse(brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
+                            if (ent.Name.Contains("[Base]"))
+                            {
+                                Graphics.FillPolygon(brush, new[] {
+                                    new PointF(nextpoint.X, nextpoint.Y - 4.5f),
+                                    new PointF(nextpoint.X + 4.5f, nextpoint.Y + 4.5f),
+                                    new PointF(nextpoint.X - 4.5f, nextpoint.Y + 4.5f),
+                                });
+                            }
+                            else if (ent.Name.Contains("[Empl]"))
+                            {
+                                Graphics.FillPolygon(brush, new[] {
+                                    new PointF(nextpoint.X, nextpoint.Y - 3.5f),
+                                    new PointF(nextpoint.X + 3.5f, nextpoint.Y + 3.5f),
+                                    new PointF(nextpoint.X - 3.5f, nextpoint.Y + 3.5f),
+                                });
+                            }
+                            else
+                            {
+                                Graphics.FillEllipse(brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
+                            }
+
                             BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
                         }
                     }
@@ -255,6 +291,17 @@ namespace SpaceEngineersMap
                 var ent = Entries[i].RotateFlip2D(Rotation);
                 var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
 
+                var pen = ent.Name.Contains("@") ? AltPen : ((ent.Name[8] - '0') % 2 == 0 ? TravelPen2 : TravelPen);
+
+                if (ent.Name.Contains(">"))
+                {
+                    pen = MissilePen;
+                }
+                else if (!ent.IsPlayer)
+                {
+                    pen = BotPen;
+                }
+
                 if (!ent.Name.Contains("$") && !ent.Name.Contains("="))
                 {
                     if (!ent.Name.Contains("^"))
@@ -262,7 +309,7 @@ namespace SpaceEngineersMap
                         if (ent.Name.Contains("@"))
                         {
                             var draw = Math.Abs(nextpoint.X - altpoint.X) < Bitmap.Width && Math.Abs(nextpoint.Y - altpoint.Y) < Bitmap.Height && Prefixes.Any(p => ent.Name.StartsWith(p));
-                            altpathsegs.Add((draw, AltPen, altpoint, nextpoint));
+                            altpathsegs.Add((draw, pen, altpoint, nextpoint));
 
                             if (draw)
                             {
@@ -276,7 +323,6 @@ namespace SpaceEngineersMap
                         else
                         {
                             bool draw = Math.Abs(nextpoint.X - point.X) < Bitmap.Width && Math.Abs(nextpoint.Y - point.Y) < Bitmap.Height && (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p)));
-                            var pen = (ent.Name[8] - '0') % 2 == 0 ? TravelPen2 : TravelPen;
 
                             pathsegs.Add((draw, pen, point, nextpoint));
 
