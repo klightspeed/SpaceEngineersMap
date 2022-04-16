@@ -10,6 +10,8 @@ namespace SpaceEngineersMap
 {
     public class MapDrawer : IDisposable
     {
+        private readonly int Width;
+        private readonly int Height;
         private readonly Bitmap Bitmap;
         private readonly List<GpsEntry> Entries;
         private readonly RotateFlipType Rotation;
@@ -34,9 +36,11 @@ namespace SpaceEngineersMap
         private Brush Text2Brush;
         private Pen TextOutlinePen;
 
-        public MapDrawer(Bitmap bmp, List<GpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes)
+        public MapDrawer(Bitmap bmp, Graphics graphics, List<GpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes)
         {
-            Bitmap = bmp;
+            Width = bmp.Width;
+            Height = bmp.Height;
+            Graphics = graphics;
             Entries = entries;
             Rotation = rotation;
             Prefixes = prefixes;
@@ -45,8 +49,6 @@ namespace SpaceEngineersMap
 
         public void Open()
         {
-            Graphics = Graphics.FromImage(Bitmap);
-            Graphics.SmoothingMode = SmoothingMode.HighQuality;
             GridPen = new Pen(Color.FromArgb(64, 0, 0, 0))
             {
                 LineJoin = LineJoin.Round,
@@ -104,16 +106,16 @@ namespace SpaceEngineersMap
 
         public void DrawEdges()
         {
-            Graphics.DrawRectangle(GridPen, 0, 0, Bitmap.Width, Bitmap.Height);
+            Graphics.DrawRectangle(GridPen, 0, 0, Width, Height);
         }
 
         private void DrawPolarLatLonLines()
         {
             var lats = new[] { 75, 60, 45 };
             var lons = new[] { -30, -15, 0, 15, 30, 45 };
-            var latrads = lats.Select(l => (float)Math.Tan((90 - l) * Math.PI / 180) * Bitmap.Width / 2).ToArray();
-            var lontans = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Bitmap.Width).ToArray();
-            var mid = Bitmap.Width / 2;
+            var latrads = lats.Select(l => (float)Math.Tan((90 - l) * Math.PI / 180) * Width / 2).ToArray();
+            var lontans = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width).ToArray();
+            var mid = Width / 2;
 
             foreach (var latrad in latrads)
             {
@@ -122,8 +124,8 @@ namespace SpaceEngineersMap
 
             foreach (var lontan in lontans)
             {
-                Graphics.DrawLine(GridPen, mid - lontan, mid - Bitmap.Width, mid + lontan, mid + Bitmap.Width);
-                Graphics.DrawLine(GridPen, mid - Bitmap.Width, mid + lontan, mid + Bitmap.Width, mid - lontan);
+                Graphics.DrawLine(GridPen, mid - lontan, mid - Width, mid + lontan, mid + Width);
+                Graphics.DrawLine(GridPen, mid - Width, mid + lontan, mid + Width, mid - lontan);
             }
         }
 
@@ -131,14 +133,14 @@ namespace SpaceEngineersMap
         {
             var lats = new[] { -60, -45, -30, -15, 0, 15, 30, 45, 60 };
             var lons = new[] { -60, -45, -30, -15, 0, 15, 30, 45, 60 };
-            var lonrads = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Bitmap.Width / 2).ToArray();
+            var lonrads = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width / 2).ToArray();
             var lonincoss = lons.Select(l => 1.0f / (float)Math.Cos(l * Math.PI / 180)).ToArray();
-            var lattans = lats.Select(l => (float)Math.Tan(l * Math.PI / 180) * Bitmap.Width / 2).ToArray();
-            var mid = Bitmap.Width / 2;
+            var lattans = lats.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width / 2).ToArray();
+            var mid = Width / 2;
 
             foreach (var lonrad in lonrads)
             {
-                Graphics.DrawLine(GridPen, mid - lonrad, mid - Bitmap.Width, mid - lonrad, mid + Bitmap.Width);
+                Graphics.DrawLine(GridPen, mid - lonrad, mid - Width, mid - lonrad, mid + Width);
             }
 
             foreach (var lattan in lattans)
@@ -170,7 +172,7 @@ namespace SpaceEngineersMap
             for (int i = 0; i < Entries.Count; i++)
             {
                 var ent = Entries[i].RotateFlip2D(Rotation);
-                var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
+                var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
                 if (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
                 {
                     if (ent.Name.Contains("@"))
@@ -281,7 +283,7 @@ namespace SpaceEngineersMap
         public void DrawPath()
         {
             var ent0 = Entries[0].RotateFlip2D(Rotation);
-            var point = new PointF((float)(ent0.X + Bitmap.Width / 2), (float)(ent0.Y + Bitmap.Height / 2));
+            var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
             var altpoint = point;
             var pathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
             var altpathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
@@ -289,7 +291,7 @@ namespace SpaceEngineersMap
             for (int i = 1; i < Entries.Count; i++)
             {
                 var ent = Entries[i].RotateFlip2D(Rotation);
-                var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
+                var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
 
                 var pen = ent.Name.Contains("@") ? AltPen : ((ent.Name[8] - '0') % 2 == 0 ? TravelPen2 : TravelPen);
 
@@ -308,7 +310,7 @@ namespace SpaceEngineersMap
                     {
                         if (ent.Name.Contains("@"))
                         {
-                            var draw = Math.Abs(nextpoint.X - altpoint.X) < Bitmap.Width && Math.Abs(nextpoint.Y - altpoint.Y) < Bitmap.Height && Prefixes.Any(p => ent.Name.StartsWith(p));
+                            var draw = Math.Abs(nextpoint.X - altpoint.X) < Width && Math.Abs(nextpoint.Y - altpoint.Y) < Height && Prefixes.Any(p => ent.Name.StartsWith(p));
                             altpathsegs.Add((draw, pen, altpoint, nextpoint));
 
                             if (draw)
@@ -322,7 +324,7 @@ namespace SpaceEngineersMap
                         }
                         else
                         {
-                            bool draw = Math.Abs(nextpoint.X - point.X) < Bitmap.Width && Math.Abs(nextpoint.Y - point.Y) < Bitmap.Height && (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p)));
+                            bool draw = Math.Abs(nextpoint.X - point.X) < Width && Math.Abs(nextpoint.Y - point.Y) < Height && (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p)));
 
                             pathsegs.Add((draw, pen, point, nextpoint));
 
@@ -395,14 +397,14 @@ namespace SpaceEngineersMap
         public void DrawTenMinutePoints()
         {
             var ent0 = Entries[0].RotateFlip2D(Rotation);
-            var point = new PointF((float)(ent0.X + Bitmap.Width / 2), (float)(ent0.Y + Bitmap.Height / 2));
+            var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
             var prefix = ent0.Name.Substring(0, 9);
             double sincelast = 0;
 
             for (int i = 1; i < Entries.Count; i++)
             {
                 var ent = Entries[i].RotateFlip2D(Rotation);
-                var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
+                var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
 
                 if ((Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
                     && !ent.Name.Contains("$")
@@ -425,6 +427,41 @@ namespace SpaceEngineersMap
             }
         }
 
+        public List<(Brush TextBrush, Pen OutlinePen, GraphicsPath Path)> GetPOITextPaths()
+        {
+            var paths = new List<(Brush TextBrush, Pen OutlinePen, GraphicsPath Path)>();
+
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                var ent = Entries[i].RotateFlip2D(Rotation);
+                if (!string.IsNullOrWhiteSpace(ent.Description) && ent.Description != "Current position")
+                {
+                    var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
+                    if ((Prefixes.Length == 0 && !ent.Name.Contains("@")) || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                    {
+                        bool hidepart1 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.Name.StartsWith(p));
+                        bool hidepart2 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.Name.Contains("-" + p));
+
+                        var font = TextFont;
+                        var brush = TextBrush;
+                        var outlinepen = TextOutlinePen;
+                        var description = ent.Description;
+
+                        if (description.StartsWith("[Bot]"))
+                        {
+                            font = Text2Font;
+                            brush = Text2Brush;
+                            description = description.Substring(5);
+                        }
+
+                        paths.Add(TextDrawing.GetTextPath(Graphics, description, nextpoint, font, brush, outlinepen, hidepart1, hidepart2));
+                    }
+                }
+            }
+
+            return paths;
+        }
+
         public void DrawPOIText()
         {
             for (int i = 0; i < Entries.Count; i++)
@@ -432,7 +469,7 @@ namespace SpaceEngineersMap
                 var ent = Entries[i].RotateFlip2D(Rotation);
                 if (!string.IsNullOrWhiteSpace(ent.Description) && ent.Description != "Current position")
                 {
-                    var nextpoint = new PointF((float)(ent.X + Bitmap.Width / 2), (float)(ent.Y + Bitmap.Height / 2));
+                    var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
                     if ((Prefixes.Length == 0 && !ent.Name.Contains("@")) || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
                     {
                         bool hidepart1 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.Name.StartsWith(p));
@@ -462,7 +499,7 @@ namespace SpaceEngineersMap
 
         public RectangleF? GetBounds()
         {
-            BoundsRegion.Intersect(new RectangleF(0, 0, Bitmap.Width, Bitmap.Height));
+            BoundsRegion.Intersect(new RectangleF(0, 0, Width, Height));
 
             if (BoundsRegion.IsEmpty(Graphics))
             {
@@ -484,7 +521,6 @@ namespace SpaceEngineersMap
             AltPen?.Dispose();
             TravelPen?.Dispose();
             BoundsRegion?.Dispose();
-            Graphics?.Dispose();
         }
     }
 }

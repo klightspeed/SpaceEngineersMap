@@ -567,57 +567,78 @@ namespace SpaceEngineersMap
                     //bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
                     var mapbounds = new Bounds(new RectangleF(0, 0, bmp.Width, bmp.Height));
 
-                    using (var drawer = new MapDrawer(bmp, new List<GpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments))
+                    using (var graphics = Graphics.FromImage(bmp))
                     {
-                        drawer.Open();
-                        drawer.DrawEdges();
-                        drawer.DrawLatLonLines();
-                    }
-
-                    var drawers = new List<MapDrawer>();
-
-                    try
-                    {
-                        foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
+                        graphics.SmoothingMode = SmoothingMode.HighQuality;
+                        using (var drawer = new MapDrawer(bmp, graphics, new List<GpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments))
                         {
-                            if (gpsents.Count >= 2)
+                            drawer.Open();
+                            drawer.DrawEdges();
+                            drawer.DrawLatLonLines();
+                        }
+
+                        var drawers = new List<MapDrawer>();
+
+                        try
+                        {
+                            foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
                             {
-                                var drawer = new MapDrawer(bmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments);
-                                drawers.Add(drawer);
-                                drawer.Open();
+                                if (gpsents.Count >= 2)
+                                {
+                                    var drawer = new MapDrawer(bmp, graphics, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments);
+                                    drawers.Add(drawer);
+                                    drawer.Open();
+                                }
                             }
-                        }
 
-                        foreach (var drawer in drawers)
-                        {
-                            drawer.DrawPOIs();
-                        }
+                            var textpaths = new List<(Brush TextBrush, Pen OutlinePen, GraphicsPath Path)>();
 
-                        foreach (var drawer in drawers)
-                        {
-                            drawer.DrawPath();
-                        }
+                            foreach (var drawer in drawers)
+                            {
+                                textpaths.AddRange(drawer.GetPOITextPaths().Where(e => e != default));
+                            }
 
-                        foreach (var drawer in drawers)
-                        {
-                            drawer.DrawPOIText();
-                        }
+                            foreach (var (textBrush, outlinePen, path) in textpaths)
+                            {
+                                graphics.DrawPath(outlinePen, path);
+                            }
 
-                        foreach (var drawer in drawers)
-                        {
-                            var gpsboundsrect = drawer.GetBounds();
+                            foreach (var drawer in drawers)
+                            {
+                                drawer.DrawPOIs();
+                            }
+
+                            foreach (var drawer in drawers)
+                            {
+                                drawer.DrawPath();
+                            }
+
+                            foreach (var (textBrush, outlinePen, path) in textpaths)
+                            {
+                                graphics.FillPath(textBrush, path);
+
+                                if (!opts.CropEnd)
+                                {
+                                    var bounds = path.GetBounds(new Matrix(), outlinePen);
+                                    mapbounds.AddRectangle(bounds);
+                                }
+                            }
 
                             if (!opts.CropEnd)
                             {
-                                mapbounds.AddRectangle(gpsboundsrect);
+                                foreach (var drawer in drawers)
+                                {
+                                    var gpsboundsrect = drawer.GetBounds();
+                                    mapbounds.AddRectangle(gpsboundsrect);
+                                }
                             }
                         }
-                    }
-                    finally
-                    {
-                        foreach (var drawer in drawers)
+                        finally
                         {
-                            drawer.Dispose();
+                            foreach (var drawer in drawers)
+                            {
+                                drawer.Dispose();
+                            }
                         }
                     }
 

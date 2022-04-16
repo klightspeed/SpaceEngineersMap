@@ -100,14 +100,17 @@ namespace SpaceEngineersMap
             ["xx"] = new StringAttach(Attach.Center, Align.Center)
         };
 
-
-        public static RectangleF? DrawText(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
+        public static (Brush TextBrush, Pen OutlinePen, GraphicsPath Path) GetTextPath(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
         {
             var cmdarg = desc.Split(new[] { ' ' }, 2);
             var margin = 10;
+            var linetomargin = 8;
+            var linefrommargin = 5;
 
             if (CommandAttachments.TryGetValue(cmdarg[0], out var attach))
             {
+                var fontheight = font.GetHeight(graphics);
+                var spacewidth = graphics.MeasureString("| |", font).Width - graphics.MeasureString("||", font).Width;
                 var attachpoint = new PointF(attach.AttachPoint.X * margin, attach.AttachPoint.Y * margin);
                 var alignpoint = attach.AlignPoint.ToPointF();
                 var halign = attach.TextAlignment;
@@ -133,26 +136,116 @@ namespace SpaceEngineersMap
                 var sectionlines = sections.Select(s => s.Split(new[] { "  ", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim(' ')).ToArray()).ToArray();
                 var lines = sectionlines.SelectMany(l => l).ToArray();
                 var hrules = sectionlines.Select(s => s.Length).ToArray();
+                var path = new GraphicsPath();
 
-                using (var path = new GraphicsPath())
+                for (int i = 0; i < lines.Length; i++)
                 {
-                    string text = string.Join("\r\n", lines);
-                    path.AddString(text, font.FontFamily, (int)font.Style, font.Size, new PointF(0, 0), format);
-                    var fontheight = font.GetHeight(graphics);
-                    var rect = path.GetBounds();
-
-                    float rulepos = rect.Top;
-                    for (int i = 0; i < hrules.Length - 1; i++)
+                    if (lines[i] == "|")
                     {
-                        rulepos += hrules[i] * fontheight;
-                        path.AddRectangle(new RectangleF(rect.X, rulepos - 2.5f, rect.Width, 1.0f));
+                        lines[i] = "";
+                    }
+                    else if (lines[i].StartsWith("| "))
+                    {
+                        lines[i] = "  " + lines[i].Substring(2);
+                    }
+                    else if (lines[i].EndsWith(" |"))
+                    {
+                        lines[i] = lines[i].Substring(0, lines[i].Length - 2) + "  ";
+                    }
+                }
+
+                var lineto = new PointF(attach.AttachPoint.X * linetomargin, attach.AttachPoint.Y * margin);
+
+                if (lines.All(e => e == "" || e.StartsWith("  ") || e.EndsWith("  ")))
+                {
+                    lineto.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 4;
+                    attachpoint.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 4;
+                    lines = lines.Select(e => e.Trim()).ToArray();
+                }
+
+                int blanklines = 0;
+
+                if (valign == StringAlignment.Near)
+                {
+                    blanklines = lines.TakeWhile(e => e == "").Count();
+                }
+                else if (valign == StringAlignment.Far)
+                {
+                    blanklines = lines.Reverse().TakeWhile(e => e == "").Count();
+                }
+
+                attachpoint.Y -= fontheight * blanklines * (attach.AlignPoint.Height - 0.5f) * 2;
+                lineto.Y -= (attach.AlignPoint.Height - 0.5f) * fontheight * blanklines * 2;
+
+                lines = lines.SkipWhile(e => e == "").Reverse().SkipWhile(e => e == "").Reverse().ToArray();
+
+                string text = string.Join("\r\n", lines);
+                path.AddString(text, font.FontFamily, (int)font.Style, font.Size, new PointF(0, 0), format);
+                var rect = path.GetBounds();
+
+                float rulepos = rect.Top;
+                for (int i = 0; i < hrules.Length - 1; i++)
+                {
+                    rulepos += hrules[i] * fontheight;
+                    path.AddRectangle(new RectangleF(rect.X, rulepos - 2.5f, rect.Width, 1.0f));
+                }
+
+                if (halign != StringAlignment.Center || valign != StringAlignment.Center)
+                {
+                    if (attachpoint.X == 0)
+                    {
+                        lineto.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 2;
+                    }
+                    else
+                    {
+                        lineto.Y -= (attach.AlignPoint.Height - 0.5f) * fontheight * lines.Length * 0.5f;
                     }
 
-                    var topleft = new PointF(pos.X + attachpoint.X, pos.Y + attachpoint.Y);
-                    var transform = new Matrix();
-                    transform.Translate(topleft.X, topleft.Y);
-                    path.Transform(transform);
+                    PointF linefrom;
 
+                    if (Math.Abs(lineto.X) > Math.Abs(lineto.Y))
+                    {
+                        linefrom = new PointF(Math.Sign(lineto.X) * linefrommargin, (lineto.Y / Math.Abs(lineto.X)) * linefrommargin);
+                    }
+                    else
+                    {
+                        linefrom = new PointF((lineto.X / Math.Abs(lineto.Y)) * linefrommargin, Math.Sign(lineto.Y) * linefrommargin);
+                    }
+
+                    using (var linepath = new GraphicsPath())
+                    {
+                        using (var linepen = new Pen(Color.Black, 1.0f))
+                        {
+                            linepath.AddLine(linefrom, lineto);
+                            linepath.Widen(linepen);
+                            var linetransform = new Matrix();
+                            linetransform.Translate(-attachpoint.X, -attachpoint.Y);
+                            linepath.Transform(linetransform);
+                            path.AddPath(linepath, false);
+                        }
+                    }
+                }
+
+                var topleft = new PointF(pos.X + attachpoint.X, pos.Y + attachpoint.Y);
+                var transform = new Matrix();
+                transform.Translate(topleft.X, topleft.Y);
+                path.Transform(transform);
+                return (textbrush, outlinepen, path);
+            }
+            else
+            {
+                return default;
+            }
+        }
+
+        public static RectangleF? DrawText(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
+        {
+            var (_, _, path) = GetTextPath(graphics, desc, pos, font, textbrush, outlinepen, hidepart1, hidepart2);
+
+            if (path != null)
+            {
+                using (path)
+                {
                     graphics.DrawPath(outlinepen, path);
                     graphics.FillPath(textbrush, path);
 
@@ -163,7 +256,6 @@ namespace SpaceEngineersMap
             {
                 return null;
             }
-
         }
     }
 }
