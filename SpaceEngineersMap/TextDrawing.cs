@@ -122,20 +122,35 @@ namespace SpaceEngineersMap
                     LineAlignment = valign
                 };
 
-                var sections = cmdarg[1].Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None).Select(e => e.Trim(' ')).ToArray();
+                var sections =
+                    cmdarg[1]
+                        .Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None)
+                        .Select(e =>
+                            e.Trim(' ')
+                             .Split(new[] { "  ", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                             .Select(l => l.Trim(' '))
+                             .ToArray()
+                        )
+                        .ToArray();
 
-                if (hidepart1 && !hidepart2 && sections.Length > 1)
+                if (sections.Length == 2)
                 {
-                    sections = sections.Skip(1).ToArray();
-                }
-                else if (hidepart2 && !hidepart1)
-                {
-                    sections = new[] { sections[0] };
+                    if (hidepart1 && !hidepart2)
+                    {
+                        sections = new[] {
+                            sections[0].TakeWhile(e => e == "|").Concat(sections[1]).ToArray()
+                        };
+                    }
+                    else if (hidepart2 && !hidepart1)
+                    {
+                        sections = new[] {
+                            sections[0].Concat(sections[1].Reverse().TakeWhile(e => e == "|").Reverse()).ToArray()
+                        };
+                    }
                 }
 
-                var sectionlines = sections.Select(s => s.Split(new[] { "  ", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim(' ')).ToArray()).ToArray();
-                var lines = sectionlines.SelectMany(l => l).ToArray();
-                var hrules = sectionlines.Select(s => s.Length).ToArray();
+                var lines = sections.SelectMany(l => l).ToArray();
+                var hrules = sections.Select(s => s.Length).ToArray();
                 var path = new GraphicsPath();
 
                 for (int i = 0; i < lines.Length; i++)
@@ -168,6 +183,7 @@ namespace SpaceEngineersMap
                 if (valign == StringAlignment.Near)
                 {
                     blanklines = lines.TakeWhile(e => e == "").Count();
+                    hrules = hrules.Select(e => e - blanklines).ToArray();
                 }
                 else if (valign == StringAlignment.Far)
                 {
