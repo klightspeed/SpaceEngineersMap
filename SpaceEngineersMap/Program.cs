@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MathNet.Spatial.Euclidean;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -13,7 +14,7 @@ namespace SpaceEngineersMap
     {
         static Regex ChapterRE = new Regex(@"P(\d\d)-(\d\d)");
 
-        static (string name, string[] prefixes)[] GetSegmentPrefixes(Dictionary<CubeFace, List<List<GpsEntry>>> gpsentries, string[] chapterparts)
+        static (string name, string[] prefixes)[] GetSegmentPrefixes(Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentries, string[] chapterparts)
         {
             var entries = gpsentries.Values.SelectMany(l1 => l1.SelectMany(l2 => l2)).ToList();
             var segments = entries.Select(e => e.Name.Substring(0, 3)).Distinct().ToArray();
@@ -70,7 +71,7 @@ namespace SpaceEngineersMap
             Console.WriteLine();
         }
 
-        static void SavePOIList(Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, string[] segments, string segdir)
+        static void SavePOIList(Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, string[] segments, string segdir, Vector3D planetPos)
         {
             var gpsents =
                 gpsentlists
@@ -82,10 +83,18 @@ namespace SpaceEngineersMap
                     .Distinct()
                     .ToList();
 
+            var distance = GetTravelDistance(gpsentlists, segments);
+            var distoverground = GetDistanceOverGround(gpsentlists, segments, planetPos);
+            var elevchange = GetElevationChange(gpsentlists, segments, planetPos);
+
             using (var logfile = File.Open(Path.Combine(segdir, "POIs.txt"), FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read))
             {
                 using (var logwriter = new StreamWriter(logfile))
                 {
+                    logwriter.WriteLine($"Distance travelled: {distance / 1000:0.00}km");
+                    logwriter.WriteLine($"Distance over ground: {distoverground / 1000:0.00}km");
+                    logwriter.WriteLine($"Elevation change: {elevchange / 1000:0.00}km");
+
                     foreach (var (name, desc) in gpsents)
                     {
                         if (!string.IsNullOrWhiteSpace(desc) && desc != "Current position")
@@ -126,6 +135,151 @@ namespace SpaceEngineersMap
                     }
                 }
             }
+        }
+
+        static double GetDistance(GpsEntry left, GpsEntry right)
+        {
+            var dx = right.X - left.X;
+            var dy = right.Y - left.Y;
+            var dz = right.Z - left.Z;
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        static double GetDistanceOverGround(GpsEntry left, GpsEntry right, Vector3D planetPos)
+        {
+            var x1 = left.X - planetPos.X;
+            var y1 = left.Y - planetPos.Y;
+            var z1 = left.Z - planetPos.Z;
+            var x2 = right.X - planetPos.X;
+            var y2 = right.Y - planetPos.Y;
+            var z2 = right.Z - planetPos.Z;
+            var r1 = Math.Sqrt(x1 * x1 + y1 * y1 + z1 * z1);
+            var r2 = Math.Sqrt(x2 * x2 + y2 * y2 + z2 * z2);
+            var rm = (r1 + r2) / 2;
+            var m1 = rm / r1;
+            var m2 = rm / r2;
+            var dx = x2 * m2 - x1 * m1;
+            var dy = y2 * m2 - y1 * m1;
+            var dz = z2 * m2 - z1 * m1;
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        static double GetElevationChange(GpsEntry left, GpsEntry right, Vector3D planetPos)
+        {
+            var x1 = left.X - planetPos.X;
+            var y1 = left.Y - planetPos.Y;
+            var z1 = left.Z - planetPos.Z;
+            var x2 = right.X - planetPos.X;
+            var y2 = right.Y - planetPos.Y;
+            var z2 = right.Z - planetPos.Z;
+            var r1 = Math.Sqrt(x1 * x1 + y1 * y1 + z1 * z1);
+            var r2 = Math.Sqrt(x2 * x2 + y2 * y2 + z2 * z2);
+            return Math.Abs(r2 - r1);
+        }
+
+        static double GetTravelDistance(Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, string[] segments)
+        {
+            var gpsents =
+                gpsentlists
+                    .Values
+                    .SelectMany(e => e)
+                    .SelectMany(e => e)
+                    .Select(e => e.OriginalEntry)
+                    .Where(e =>
+                        e.IsPlayer == true &&
+                        !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
+                        (segments.Length == 0 || segments.Any(p => e.Name.StartsWith(p) || e.Name.Contains("-" + p)))
+                    )
+                    .OrderBy(e => e.Name)
+                    .Distinct()
+                    .ToList();
+
+            var distance = 0.0;
+            GpsEntry lastentry = gpsents.FirstOrDefault();
+
+            for (int i = 1; i < gpsents.Count; i++)
+            {
+                var entry = gpsents[i];
+
+                if (!entry.Name.Contains("^"))
+                {
+                    distance += GetDistance(lastentry, entry);
+                }
+
+                lastentry = entry;
+            }
+
+            return distance;
+        }
+
+        static double GetDistanceOverGround(Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, string[] segments, Vector3D planetPos)
+        {
+            var gpsents =
+                gpsentlists
+                    .Values
+                    .SelectMany(e => e)
+                    .SelectMany(e => e)
+                    .Select(e => e.OriginalEntry)
+                    .Where(e =>
+                        e.IsPlayer == true &&
+                        !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
+                        (segments.Length == 0 || segments.Any(p => e.Name.StartsWith(p) || e.Name.Contains("-" + p)))
+                    )
+                    .OrderBy(e => e.Name)
+                    .Distinct()
+                    .ToList();
+
+            var distance = 0.0;
+            GpsEntry lastentry = gpsents.FirstOrDefault();
+
+            for (int i = 1; i < gpsents.Count; i++)
+            {
+                var entry = gpsents[i];
+
+                if (!entry.Name.Contains("^"))
+                {
+                    distance += GetDistanceOverGround(lastentry, entry, planetPos);
+                }
+
+                lastentry = entry;
+            }
+
+            return distance;
+        }
+
+        static double GetElevationChange(Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, string[] segments, Vector3D planetPos)
+        {
+            var gpsents =
+                gpsentlists
+                    .Values
+                    .SelectMany(e => e)
+                    .SelectMany(e => e)
+                    .Select(e => e.OriginalEntry)
+                    .Where(e =>
+                        e.IsPlayer == true &&
+                        !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
+                        (segments.Length == 0 || segments.Any(p => e.Name.StartsWith(p) || e.Name.Contains("-" + p)))
+                    )
+                    .OrderBy(e => e.Name)
+                    .Distinct()
+                    .ToList();
+
+            var distance = 0.0;
+            GpsEntry lastentry = gpsents.FirstOrDefault();
+
+            for (int i = 1; i < gpsents.Count; i++)
+            {
+                var entry = gpsents[i];
+
+                if (!entry.Name.Contains("^"))
+                {
+                    distance += GetElevationChange(lastentry, entry, planetPos);
+                }
+
+                lastentry = entry;
+            }
+
+            return distance;
         }
 
         static bool WaitForSave(string path, ref DateTime filesavetime)
@@ -179,14 +333,17 @@ namespace SpaceEngineersMap
             do
             {
                 Console.WriteLine("Getting GPS entries");
-                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, out var endname);
+                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, out var endname, out var planetPos);
                 var segments = GetSegmentPrefixes(gpsentlists, opts.ChapterParts);
 
                 foreach (var segment in segments)
                 {
                     if (segment.prefixes.Length == 0 || !opts.CropEnd)
                     {
-                        Console.WriteLine($"Processing segment {segment.name}");
+                        var distance = GetTravelDistance(gpsentlists, segment.prefixes);
+                        var distoverground = GetDistanceOverGround(gpsentlists, segment.prefixes, planetPos);
+                        var elevchange = GetElevationChange(gpsentlists, segment.prefixes, planetPos);
+                        Console.WriteLine($"Processing segment {segment.name} (Total {distance / 1000:0.00}km / Ground {distoverground / 1000:0.00}km / Elev {elevchange / 1000:0.00}km)");
                         string segdir = opts.OutputDirectory;
 
                         if (segment.prefixes.Length != 0)
@@ -200,7 +357,7 @@ namespace SpaceEngineersMap
                         }
 
                         MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment.prefixes, segdir, endname);
-                        SavePOIList(gpsentlists, segment.prefixes, segdir);
+                        SavePOIList(gpsentlists, segment.prefixes, segdir, planetPos);
                     }
                 }
 

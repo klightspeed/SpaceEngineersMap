@@ -11,14 +11,14 @@ namespace SpaceEngineersMap
 {
     public class GpsEntry
     {
-        public string Owner { get; set; }
-        public bool IsPlayer { get; set; }
-        public string Name { get; set; }
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double Z { get; set; }
-        public string Description { get; set; }
-        public bool ShowOnHud { get; set; }
+        public virtual string Owner { get; private set; }
+        public virtual bool IsPlayer { get; private set; }
+        public virtual string Name { get; private set; }
+        public double X { get; protected set; }
+        public double Y { get; protected set; }
+        public double Z { get; protected set; }
+        public virtual string Description { get; private set; }
+        public virtual bool ShowOnHud { get; private set; }
 
         private Vector3D Rotate(Vector3D vector, Quaternion rotation)
         {
@@ -28,7 +28,7 @@ namespace SpaceEngineersMap
             return 2 * u.DotProduct(vector) * u + (s * s - u.DotProduct(u)) * vector + 2 * s * u.CrossProduct(vector);
         }
 
-        public GpsEntry Project(int mult, int maxval, Vector3D planetPos, Quaternion planetRotation, CubeFace face, bool rotate45)
+        public ProjectedGpsEntry Project(int mult, int maxval, Vector3D planetPos, Quaternion planetRotation, CubeFace face, bool rotate45)
         {
             var coords = Rotate(new Vector3D(X, Y, Z) - planetPos, planetRotation);
             var projected = MapUtils.Project(coords, mult, maxval, face, rotate45);
@@ -39,7 +39,7 @@ namespace SpaceEngineersMap
             }
             else
             {
-                return new GpsEntry
+                return new ProjectedGpsEntry
                 {
                     Owner = Owner,
                     IsPlayer = IsPlayer,
@@ -48,32 +48,9 @@ namespace SpaceEngineersMap
                     Y = projected.Y,
                     Z = projected.Z,
                     Description = Description,
-                    ShowOnHud = ShowOnHud
+                    ShowOnHud = ShowOnHud,
+                    OriginalEntry = this
                 };
-            }
-        }
-
-        public GpsEntry RotateFlip2D(RotateFlipType rotation)
-        {
-            switch (rotation)
-            {
-                case RotateFlipType.RotateNoneFlipNone:
-                default:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = X, Y = Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
-                case RotateFlipType.Rotate90FlipNone:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -Y, Y = X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
-                case RotateFlipType.Rotate180FlipNone:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -X, Y = -Y, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
-                case RotateFlipType.Rotate270FlipNone:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = Y, Y = -X, Z = Z, Description = Description, ShowOnHud = ShowOnHud };
-                case RotateFlipType.RotateNoneFlipX:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -X, Y = Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
-                case RotateFlipType.Rotate90FlipX:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = Y, Y = X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
-                case RotateFlipType.Rotate180FlipX:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = X, Y = -Y, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
-                case RotateFlipType.Rotate270FlipX:
-                    return new GpsEntry { Owner = Owner, IsPlayer = IsPlayer, Name = Name, X = -Y, Y = -X, Z = -Z, Description = Description, ShowOnHud = ShowOnHud };
             }
         }
 
@@ -92,6 +69,40 @@ namespace SpaceEngineersMap
                 Description = xe.Element("description").Value,
                 ShowOnHud = xe.Element("showOnHud").Value == "true"
             };
+        }
+    }
+
+    public class ProjectedGpsEntry : GpsEntry
+    {
+        public GpsEntry OriginalEntry { get; set; }
+        public override string Name => OriginalEntry.Name;
+        public override string Owner => OriginalEntry.Owner;
+        public override bool IsPlayer => OriginalEntry.IsPlayer;
+        public override string Description => OriginalEntry.Description;
+        public override bool ShowOnHud => OriginalEntry.ShowOnHud;
+
+        public ProjectedGpsEntry RotateFlip2D(RotateFlipType rotation)
+        {
+            switch (rotation)
+            {
+                case RotateFlipType.RotateNoneFlipNone:
+                default:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = X, Y = Y, Z = Z };
+                case RotateFlipType.Rotate90FlipNone:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = -Y, Y = X, Z = Z };
+                case RotateFlipType.Rotate180FlipNone:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = -X, Y = -Y, Z = Z };
+                case RotateFlipType.Rotate270FlipNone:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = Y, Y = -X, Z = Z };
+                case RotateFlipType.RotateNoneFlipX:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = -X, Y = Y, Z = -Z };
+                case RotateFlipType.Rotate90FlipX:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = Y, Y = X, Z = -Z };
+                case RotateFlipType.Rotate180FlipX:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = X, Y = -Y, Z = -Z };
+                case RotateFlipType.Rotate270FlipX:
+                    return new ProjectedGpsEntry { OriginalEntry = OriginalEntry, X = -Y, Y = -X, Z = -Z };
+            }
         }
     }
 }

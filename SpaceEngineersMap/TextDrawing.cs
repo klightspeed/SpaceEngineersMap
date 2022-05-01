@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Text.RegularExpressions;
 
 namespace SpaceEngineersMap
 {
@@ -102,6 +103,15 @@ namespace SpaceEngineersMap
 
         public static (Brush TextBrush, Pen OutlinePen, GraphicsPath Path) GetTextPath(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
         {
+            var lrmargin = 0;
+
+            if (Regex.IsMatch(desc, "^[|]+ "))
+            {
+                var split = desc.Split(new[] { ' ' }, 2);
+                lrmargin = split[0].Length;
+                desc = split[1].TrimStart();
+            }
+
             var cmdarg = desc.Split(new[] { ' ' }, 2);
             var margin = 10;
             var linetomargin = 8;
@@ -170,6 +180,9 @@ namespace SpaceEngineersMap
                 }
 
                 var lineto = new PointF(attach.AttachPoint.X * linetomargin, attach.AttachPoint.Y * margin);
+
+                attachpoint.X -= lrmargin * (attach.AlignPoint.Width - 0.5f) * spacewidth * 2;
+                lineto.X -= lrmargin * (attach.AlignPoint.Width - 0.5f) * spacewidth * 2;
 
                 if (lines.All(e => e == "" || e.StartsWith("  ") || e.EndsWith("  ")))
                 {

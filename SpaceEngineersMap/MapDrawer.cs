@@ -12,8 +12,7 @@ namespace SpaceEngineersMap
     {
         private readonly int Width;
         private readonly int Height;
-        private readonly Bitmap Bitmap;
-        private readonly List<GpsEntry> Entries;
+        private readonly List<ProjectedGpsEntry> Entries;
         private readonly RotateFlipType Rotation;
         private readonly CubeFace Face;
         private readonly string[] Prefixes;
@@ -36,7 +35,7 @@ namespace SpaceEngineersMap
         private Brush Text2Brush;
         private Pen TextOutlinePen;
 
-        public MapDrawer(Bitmap bmp, Graphics graphics, List<GpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes)
+        public MapDrawer(Bitmap bmp, Graphics graphics, List<ProjectedGpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes)
         {
             Width = bmp.Width;
             Height = bmp.Height;
@@ -451,7 +450,7 @@ namespace SpaceEngineersMap
                         {
                             font = Text2Font;
                             brush = Text2Brush;
-                            description = description.Substring(5);
+                            description = description.Substring(5).TrimStart();
                         }
 
                         paths.Add(TextDrawing.GetTextPath(Graphics, description, nextpoint, font, brush, outlinepen, hidepart1, hidepart2));

@@ -47,6 +47,14 @@ namespace SpaceEngineersMap
             AddPoint(x + width, y + height);
         }
 
+        public void Clamp(float xmin, float ymin, float xmax, float ymax)
+        {
+            if (XMin < xmin) XMin = xmin;
+            if (YMin < ymin) YMin = ymin;
+            if (XMax > xmax) XMax = xmax;
+            if (YMax > ymax) YMax = ymax;
+        }
+
         public void AddRectangle(RectangleF? rect)
         {
             if (rect is RectangleF r)

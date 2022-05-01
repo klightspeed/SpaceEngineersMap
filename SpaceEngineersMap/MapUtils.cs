@@ -76,9 +76,10 @@ namespace SpaceEngineersMap
             return (new Vector3D(0, 0, 0), new Quaternion(1, 0, 0, 0));
         }
 
-        public static Dictionary<CubeFace, List<List<GpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, out string endname)
+        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, out string endname, out Vector3D planetPosition)
         {
             var (planetPos, planetRot) = GetPlanetPositionAndOrientation(savedir, planetname);
+            planetPosition = planetPos;
             var namere = new Regex(@"^P\d\d\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(Path.Combine(savedir, "Sandbox.sbc"));
 
@@ -551,7 +552,7 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<GpsEntry>>> gpsentlists, SEMapOptions opts, string[] segments, string outdir, string endname)
+        public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, SEMapOptions opts, string[] segments, string outdir, string endname)
         {
             Dictionary<CubeFace, Bitmap> maps = new Dictionary<CubeFace, Bitmap>();
             Bitmap tilebmp = null;
@@ -570,7 +571,7 @@ namespace SpaceEngineersMap
                     using (var graphics = Graphics.FromImage(bmp))
                     {
                         graphics.SmoothingMode = SmoothingMode.HighQuality;
-                        using (var drawer = new MapDrawer(bmp, graphics, new List<GpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments))
+                        using (var drawer = new MapDrawer(bmp, graphics, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments))
                         {
                             drawer.Open();
                             drawer.DrawEdges();
@@ -620,7 +621,11 @@ namespace SpaceEngineersMap
                                 if (!opts.CropEnd)
                                 {
                                     var bounds = path.GetBounds(new Matrix(), outlinePen);
-                                    mapbounds.AddRectangle(bounds);
+
+                                    if (bounds.Left < bmp.Width && bounds.Right >= 0 && bounds.Top < bmp.Height && bounds.Bottom >= 0)
+                                    {
+                                        mapbounds.AddRectangle(bounds);
+                                    }
                                 }
                             }
 
@@ -628,8 +633,12 @@ namespace SpaceEngineersMap
                             {
                                 foreach (var drawer in drawers)
                                 {
-                                    var gpsboundsrect = drawer.GetBounds();
-                                    mapbounds.AddRectangle(gpsboundsrect);
+                                    var bounds = drawer.GetBounds();
+
+                                    if (bounds?.Left < bmp.Width && bounds?.Right >= 0 && bounds?.Top < bmp.Height && bounds?.Bottom >= 0)
+                                    {
+                                        mapbounds.AddRectangle(bounds);
+                                    }
                                 }
                             }
                         }
@@ -658,6 +667,8 @@ namespace SpaceEngineersMap
                             }
                         }
                     }
+
+                    mapbounds.Clamp(0, 0, bmp.Width, bmp.Height);
 
                     gpsbounds[kvp.Key] = mapbounds;
 
