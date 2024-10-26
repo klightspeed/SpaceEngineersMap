@@ -76,10 +76,8 @@ namespace SpaceEngineersMap
             return (new Vector3D(0, 0, 0), new Quaternion(1, 0, 0, 0));
         }
 
-        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, out string endname, out Vector3D planetPosition)
+        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname)
         {
-            var (planetPos, planetRot) = GetPlanetPositionAndOrientation(savedir, planetname);
-            planetPosition = planetPos;
             var namere = new Regex(@"^P\d\d\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(Path.Combine(savedir, "Sandbox.sbc"));
 
@@ -121,55 +119,6 @@ namespace SpaceEngineersMap
             endname = gpsentlists.Where(e => e.Count >= 1).Select(e => e.Last().Name).OrderByDescending(e => e).FirstOrDefault();
 
             return Faces.Select(f => GetFace(f)).ToDictionary(f => f, f => gpsentlists.Select(glist => glist.Select(g => g.Project(1024, 1024, planetPos, planetRot, f, rotate45)).Where(e => e != null).ToList()).ToList());
-        }
-
-        private static List<string> GetInstalledModIds(string savedir)
-        {
-            var modids = new List<string>();
-            if (savedir != null)
-            {
-                var saveconfig = Path.Combine(savedir, "Sandbox_config.sbc");
-
-                if (File.Exists(saveconfig))
-                {
-                    using (var file = File.Open(saveconfig, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    {
-                        var xml = XDocument.Load(file);
-                        var root = xml.Root;
-                        var mods = root.Element("Mods").Elements("ModItem");
-
-                        foreach (var mod in mods)
-                        {
-                            if (mod.Element("PublishedFileId")?.Value is string modid)
-                            {
-                                modids.Add(modid);
-                            }
-                            else if (mod.Element("Name")?.Value is string modname && long.TryParse(modname.Replace(".sbm", ""), out _))
-                            {
-                                modids.Add(modname.Replace(".sbm", ""));
-                            }
-                        }
-                    }
-                }
-            }
-
-            return modids;
-        }
-
-        private static string FindPlanetDir(string savedir, string contentdir, string workshopdir, string planetname)
-        {
-            var modids = GetInstalledModIds(savedir);
-
-            foreach (var modid in modids)
-            {
-                var planetdir = Path.Combine(workshopdir, modid, "Data", "PlanetDataFiles", planetname);
-                if (Faces.All(f => File.Exists(Path.Combine(planetdir, $"{f}.png"))))
-                {
-                    return planetdir;
-                }
-            }
-
-            return Path.Combine(contentdir, "Data", "PlanetDataFiles", planetname);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -445,7 +394,7 @@ namespace SpaceEngineersMap
 
         public static Dictionary<CubeFace, Bitmap> GetContourMaps(SEMapOptions options)
         {
-            var planetdir = FindPlanetDir(options.SaveDirectory, options.ContentDirectory, options.WorkshopDirectory, options.PlanetName);
+            var planetdir = options.PlanetDirectory;
             var maps = Faces.ToDictionary(f => f, f => Map.Load(planetdir, f));
 
             if (options.Rotate45)

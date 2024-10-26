@@ -174,7 +174,7 @@ Nothing::
 	Starts at last normal path point, and does not affect normal path
 
 `~`::
-    Segment not included in distance travelled
+    Segment not included in distance travelled (e.g. flying)
 
 `>`::
 	Indicates this path belongs to a missile

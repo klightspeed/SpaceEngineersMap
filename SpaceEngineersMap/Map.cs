@@ -174,6 +174,10 @@ namespace SpaceEngineersMap
             var rotation = options.FaceRotations[Face];
             var heights = RotateFlip(Heights, rotation);
             var materials = RotateFlip(Materials, rotation);
+            var heightmul = (options.PlanetMaxRadius - options.PlanetMinRadius) / 100;
+            var sealevel = Math.Max(options.PlanetSeaLevel - options.PlanetMinRadius, 0) / 100;
+            var heightofs = Math.Floor(sealevel) + 2 - sealevel;
+            sealevel = (options.PlanetSeaLevel - options.PlanetMinRadius) / 100 + heightofs;
 
             for (int i = 0; i < heights.Length - 2; i++)
             {
@@ -190,15 +194,15 @@ namespace SpaceEngineersMap
 
                     var lvs = new List<ushort> { hrow[j], hrow[j + 1], hrow[j + 2], hup[j], hup[j + 1], hup[j + 2], hdn[j], hdn[j + 1], hdn[j + 2] };
                     lvs.Sort();
-                    int lo = lvs[0] * 78 / 65536 + 2;
-                    int hi = lvs[8] * 78 / 65536 + 2;
-                    int mid = hrow[j + 1] * 78 / 65536 + 2;
+                    int lo = (int)Math.Floor(lvs[0] * heightmul / 65536 + heightofs);
+                    int hi = (int)Math.Floor(lvs[8] * heightmul / 65536 + heightofs);
+                    int mid = (int)Math.Floor(hrow[j + 1] * heightmul / 65536 + heightofs);
                     int height = hrow[j + 1];
                     int slope = lvs[8] - lvs[0];
 
                     byte mat = mrow[j + 1].ComplexMaterial;
 
-                    if ((mat == 82 && slope < 16) || (mat == 0 && height <= 16 && IsSeaLevelIce(j, i, w, w)))
+                    if (mid > sealevel && ((mat == 82 && slope < 16) || (mat == 0 && height <= 16 && IsSeaLevelIce(j, i, w, w))))
                     {
                         pxr = ice.R;
                         pxg = ice.G;
@@ -206,7 +210,7 @@ namespace SpaceEngineersMap
                     }
                     else if (options.SlopeShading)
                     {
-                        int px1 = (int)Math.Floor(((hrow[j + 1] * 78.0 / 65536 + 2) / 4) * 6);
+                        int px1 = (int)Math.Floor(((hrow[j + 1] * heightmul / 65536 + heightofs) / 4) * 6);
                         int px3 = 127 - (int)Math.Min(127, (lvs[8] - lvs[0]) / 6.0);
                         pxr = (byte)(px1 + px3 * 3 / 4 + 32);
                         pxg = (byte)(px3 + 128);
@@ -217,7 +221,7 @@ namespace SpaceEngineersMap
                         var v1 = (hrow[j + 2] * 4 + hup[j + 2] * 2 + hup[j + 1] + hdn[j + 2]) / 8;
                         var v2 = (hrow[j + 0] * 4 + hdn[j + 0] * 2 + hdn[j + 1] + hup[j + 0]) / 8;
                         var v = Math.Atan((v1 - v2) / 192.0) * 128.0 / Math.PI;
-                        int px1 = (int)Math.Floor(((hrow[j + 1] * 78.0 / 65536 + 2) / 4) * 6);
+                        int px1 = (int)Math.Floor(((hrow[j + 1] * heightmul / 65536 + heightofs) / 4) * 6);
                         int px3 = 127 - (int)Math.Max(0, Math.Min(127, v + 64));
                         pxr = (byte)(px1 + px3 * 3 / 4 + 32);
                         pxg = (byte)(px3 + 128);
@@ -225,20 +229,32 @@ namespace SpaceEngineersMap
                     }
                     else
                     {
-                        int px1 = (int)Math.Floor(((hrow[j + 1] * 78.0 / 65536 + 2) / 4) * 6);
-                        int px2 = ((hrow[j + 1] * 78 / 1024 + 2 * 64) / 4) % 64;
+                        int px1 = (int)Math.Floor(((hrow[j + 1] * heightmul / 65536 + heightofs) / 4) * 6);
+                        int px2 = ((int)Math.Floor((hrow[j + 1] * heightmul / 1024) + heightofs * 64) / 4) % 64;
                         pxr = (byte)(px1 + px2 + 64);
                         pxg = (byte)(px2 + 160);
                         pxb = (byte)(px2 + 128 - px1 / 2);
                     }
 
+                    if (mid < sealevel)
+                    {
+                        pxr /= 2;
+                        pxg /= 2;
+                    }
+
                     if (mid / 4 != hi / 4 && options.ContourLines)
                     {
-                        if (mid < 8)
+                        if (mid < sealevel)
+                        {
+                            pxr = (byte)(pxr / 2 + 8);
+                            pxg = (byte)(pxg / 2 + 32);
+                            pxb = (byte)(pxb / 2 + 64);
+                        }
+                        else if (mid < 8)
                         {
                             pxr = (byte)(pxr / 2 + 32);
-                            pxg = (byte)(pxr / 2 + 64);
-                            pxb = (byte)(pxr / 2 + 48);
+                            pxg = (byte)(pxg / 2 + 64);
+                            pxb = (byte)(pxb / 2 + 48);
                         }
                         else if (hi >= 72)
                         {

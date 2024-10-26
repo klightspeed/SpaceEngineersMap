@@ -1,10 +1,12 @@
-﻿using System;
+﻿using MathNet.Spatial.Euclidean;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace SpaceEngineersMap
 {
@@ -15,6 +17,9 @@ namespace SpaceEngineersMap
         public string OutputDirectory { get; set; }
         public string WorkshopDirectory { get; set; }
         public string PlanetName { get; set; } = "EarthLike";
+        public long PlanetEntityId { get; set; }
+        public string PlanetDataDirectory { get; set; }
+        public string PlanetDirectory { get; set; }
         public string[] ChapterParts { get; set; }
         public bool ShowHelp { get; set; }
         public bool CropTileMap { get; set; }
@@ -28,8 +33,137 @@ namespace SpaceEngineersMap
         public int EndTextureSize { get; set; } = 256;
         public int EpisodeTextureSize { get; set; } = 512;
         public int FullMapTextureSize { get; set; } = 1024;
+        public double PlanetSeaLevel { get; set; } = 0;
+        public double PlanetMinRadius { get; set; } = 59400;
+        public double PlanetMaxRadius { get; set; } = 67200;
         public CubeFace[][] TileFaces { get; set; }
         public Dictionary<CubeFace, RotateFlipType> FaceRotations { get; set; }
+        public Vector3D PlanetPosition { get; set; } = new Vector3D(0, 0, 0);
+        public Quaternion PlanetRotation { get; set; } = new Quaternion(1, 0, 0, 0);
+
+        private static readonly XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
+
+        private void FillPlanetDetails()
+        {
+            PlanetDataDirectory = FindPlanetDir(SaveDirectory, ContentDirectory, WorkshopDirectory, PlanetName);
+            PlanetDirectory = Path.Combine(PlanetDataDirectory, "PlanetDataFiles", PlanetName);
+
+            foreach (var savefile in Directory.EnumerateFiles(SaveDirectory, "SANDBOX_*.sbs"))
+            {
+                var xdoc = XDocument.Load(savefile);
+                var objects = xdoc.Root.Element("SectorObjects").Elements("MyObjectBuilder_EntityBase");
+                foreach (var obj in objects)
+                {
+                    if (obj.Attribute(xsi + "type")?.Value == "MyObjectBuilder_Planet" && string.Equals(obj.Element("PlanetGenerator")?.Value, PlanetName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var positionAndOrientation = obj.Element("PositionAndOrientation");
+                        var positionElement = positionAndOrientation.Element("Position");
+                        var orientationElement = positionAndOrientation.Element("Orientation");
+                        var entityid = long.Parse(obj.Element("EntityId").Value);
+                        var maxradius = double.Parse(obj.Element("MaximumHillRadius").Value);
+                        var minradius = double.Parse(obj.Element("MinimumSurfaceRadius").Value);
+
+                        double size = 128;
+                        while (size < maxradius) size *= 2;
+
+                        var pos = new Vector3D(
+                            double.Parse(positionElement.Attribute("x").Value) + size + 0.5,
+                            double.Parse(positionElement.Attribute("y").Value) + size + 0.5,
+                            double.Parse(positionElement.Attribute("z").Value) + size + 0.5
+                        );
+                        var rotation = new Quaternion(
+                            double.Parse(orientationElement.Element("W").Value),
+                            double.Parse(orientationElement.Element("X").Value),
+                            double.Parse(orientationElement.Element("Y").Value),
+                            double.Parse(orientationElement.Element("Z").Value)
+                        );
+
+                        PlanetPosition = pos;
+                        PlanetRotation = rotation;
+                        PlanetMaxRadius = maxradius;
+                        PlanetMinRadius = minradius;
+                        PlanetEntityId = entityid;
+                        return;
+                    }
+                }
+            }
+        }
+
+        private static List<string> GetInstalledModIds(string savedir)
+        {
+            var modids = new List<string>();
+            if (savedir != null)
+            {
+                var saveconfig = Path.Combine(savedir, "Sandbox_config.sbc");
+
+                if (File.Exists(saveconfig))
+                {
+                    using (var file = File.Open(saveconfig, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    {
+                        var xml = XDocument.Load(file);
+                        var root = xml.Root;
+                        var mods = root.Element("Mods").Elements("ModItem");
+
+                        foreach (var mod in mods)
+                        {
+                            if (mod.Element("PublishedFileId")?.Value is string modid)
+                            {
+                                modids.Add(modid);
+                            }
+                            else if (mod.Element("Name")?.Value is string modname && long.TryParse(modname.Replace(".sbm", ""), out _))
+                            {
+                                modids.Add(modname.Replace(".sbm", ""));
+                            }
+                        }
+                    }
+                }
+            }
+
+            return modids;
+        }
+
+        private static string FindPlanetDir(string savedir, string contentdir, string workshopdir, string planetname)
+        {
+            var modids = GetInstalledModIds(savedir);
+
+            foreach (var modid in modids)
+            {
+                var planetdir = Path.Combine(workshopdir, modid, "Data");
+                if (MapUtils.Faces.All(f => File.Exists(Path.Combine(planetdir, "PlanetDataFiles", planetname, $"{f}.png"))))
+                {
+                    return planetdir;
+                }
+            }
+
+            return Path.Combine(contentdir, "Data");
+        }
+
+        private void FillWaterModSeaLevel()
+        {
+            var xdoc = XDocument.Load(Path.Combine(SaveDirectory, "Sandbox.sbc"));
+            var scriptmgrdata = xdoc.Root.Element("ScriptManagerData");
+            var scriptdata = xdoc.Root.Element("ScriptManagerData")?.Element("variables")?.Element("dictionary")?.Elements("item").ToArray() ?? Array.Empty<XElement>();
+            foreach (var item in scriptdata)
+            {
+                var key = item.Element("Key").Value;
+                var value = item.Element("Value").Value;
+
+                if (key == "JWater2")
+                {
+                    var jwater2doc = XDocument.Parse(value);
+                    var waters = jwater2doc.Root.Elements("Waters");
+
+                    foreach (var water in waters)
+                    {
+                        if (!long.TryParse(water.Element("EntityId").Value, out var entityId)) continue;
+                        if (entityId != PlanetEntityId) continue;
+                        if (!double.TryParse(water.Element("Settings")?.Element("Radius")?.Value, out var radius)) continue;
+                        PlanetSeaLevel = radius * PlanetMinRadius;
+                        return;
+                    }
+                }
+            }
+        }
 
         public static SEMapOptions FromArguments(string[] args)
         {
@@ -157,6 +291,11 @@ namespace SpaceEngineersMap
                     opts.EndTextureSize = Int32.Parse(args[i + 1]);
                     i++;
                 }
+                else if (args[i] == "--sealevel" && i < args.Length - 1)
+                {
+                    opts.PlanetSeaLevel = Double.Parse(args[i + 1]);
+                    i++;
+                }
                 else if (args[i] == "--onsave")
                 {
                     opts.OnSave = true;
@@ -207,6 +346,9 @@ namespace SpaceEngineersMap
             }
 
             opts.ChapterParts = chapterparts.ToArray();
+
+            opts.FillPlanetDetails();
+            opts.FillWaterModSeaLevel();
 
             return opts;
         }
