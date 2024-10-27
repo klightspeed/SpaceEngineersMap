@@ -148,6 +148,10 @@ SpaceEngineersMap accepts the following options:
 `--endsize <size>`::
 	Size of the area exported by `--cropend`
 
+`--includeauxtravels`::
+	Include paths normally only included in the episode maps in the
+	overall map.
+
 GPS Markers
 -----------
 

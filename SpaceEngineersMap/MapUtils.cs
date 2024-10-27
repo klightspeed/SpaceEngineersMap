@@ -520,7 +520,7 @@ namespace SpaceEngineersMap
                     using (var graphics = Graphics.FromImage(bmp))
                     {
                         graphics.SmoothingMode = SmoothingMode.HighQuality;
-                        using (var drawer = new MapDrawer(bmp, graphics, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments))
+                        using (var drawer = new MapDrawer(bmp, graphics, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels))
                         {
                             drawer.Open();
                             drawer.DrawEdges();
@@ -535,7 +535,7 @@ namespace SpaceEngineersMap
                             {
                                 if (gpsents.Count >= 2)
                                 {
-                                    var drawer = new MapDrawer(bmp, graphics, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments);
+                                    var drawer = new MapDrawer(bmp, graphics, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
                                     drawers.Add(drawer);
                                     drawer.Open();
                                 }

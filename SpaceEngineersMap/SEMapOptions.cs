@@ -30,6 +30,7 @@ namespace SpaceEngineersMap
         public bool ContourLines { get; set; } = true;
         public bool SlopeShading { get; set; } = false;
         public bool ReliefShading { get; set; } = false;
+        public bool IncludeAuxTravels { get; set; } = false;
         public int EndTextureSize { get; set; } = 256;
         public int EpisodeTextureSize { get; set; } = 512;
         public int FullMapTextureSize { get; set; } = 1024;
@@ -267,6 +268,10 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--croptexture")
                 {
                     opts.CropTexture = true;
+                }
+                else if (args[i] == "--includeauxtravels")
+                {
+                    opts.IncludeAuxTravels = true;
                 }
                 else if (args[i] == "--rotate45")
                 {
