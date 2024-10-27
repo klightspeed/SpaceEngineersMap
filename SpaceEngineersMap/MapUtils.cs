@@ -116,7 +116,7 @@ namespace SpaceEngineersMap
                     .ToList();
             var gpsentlists = entlists.Select(ent => ent.Where(e => namere.IsMatch(e.Name)).OrderBy(e => e.Name).ToList()).ToList();
 
-            endname = gpsentlists.Where(e => e.Count >= 1).Select(e => e.Last().Name).OrderByDescending(e => e).FirstOrDefault();
+            endname = gpsentlists.Where(e => e.Count >= 1 && e.Any(g => g.IsPlayer == true)).Select(e => e.Last().Name).OrderByDescending(e => e).FirstOrDefault();
 
             return Faces.Select(f => GetFace(f)).ToDictionary(f => f, f => gpsentlists.Select(glist => glist.Select(g => g.Project(1024, 1024, planetPos, planetRot, f, rotate45)).Where(e => e != null).ToList()).ToList());
         }
@@ -621,10 +621,7 @@ namespace SpaceEngineersMap
 
                     gpsbounds[kvp.Key] = mapbounds;
 
-                    if (!opts.CropEnd)
-                    {
-                        SaveBitmap(bmp, Path.Combine(outdir, kvp.Key.ToString() + ".png"));
-                    }
+                    SaveBitmap(bmp, Path.Combine(outdir, kvp.Key.ToString() + ".png"));
                 }
 
                 if (opts.CropEnd)

@@ -197,7 +197,7 @@ namespace SpaceEngineersMap
                             Graphics.FillEllipse(POIBrush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
                             BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
                         }
-                        else if (ent.Name.Contains("$"))
+                        else if (ent.Name.Contains("$") || ent.Name.Contains("[Base]") || ent.Name.Contains("[Empl]"))
                         {
                             var brush = POI2Brush;
                             if (ent.Description.StartsWith("[Bot]"))
