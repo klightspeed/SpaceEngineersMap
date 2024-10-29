@@ -404,15 +404,8 @@ namespace SpaceEngineersMap
                             Directory.CreateDirectory(segdir);
                         }
 
-                        var segprefixes = segment.prefixes;
-
-                        if (segprefixes.Length == 0 && opts.CropEnd)
-                        {
-                            segprefixes = new[] { endname.Split('.').First() + "." };
-                        }
-
-                        MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segprefixes, segdir, endname);
-                        SavePOIList(gpsentlists, segprefixes, segdir, opts.PlanetPosition);
+                        MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment.prefixes, segdir, endname);
+                        SavePOIList(gpsentlists, segment.prefixes, segdir, opts.PlanetPosition);
                     }
                 }
 
