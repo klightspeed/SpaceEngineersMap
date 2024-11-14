@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.Text.RegularExpressions;
+using SixLabors.Fonts;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing;
+using SixLabors.ImageSharp.Drawing.Processing;
+using System.Threading;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace SpaceEngineersMap
 {
@@ -17,40 +21,59 @@ namespace SpaceEngineersMap
             public PointF AttachPoint { get; set; }
             public SizeF AlignPoint { get; set; }
 
-            public StringAlignment TextAlignment
+            public HorizontalAlignment HorizontalAlignment
             {
                 get
                 {
                     if (AlignPoint.Width <= 0.25)
                     {
-                        return StringAlignment.Near;
+                        return HorizontalAlignment.Left;
                     }
                     else if (AlignPoint.Width >= 0.75)
                     {
-                        return StringAlignment.Far;
+                        return HorizontalAlignment.Right;
                     }
                     else
                     {
-                        return StringAlignment.Center;
+                        return HorizontalAlignment.Center;
                     }
                 }
             }
 
-            public StringAlignment LineAlignment
+            public TextAlignment TextAlignment
+            {
+                get
+                {
+                    if (AlignPoint.Width <= 0.25)
+                    {
+                        return TextAlignment.Start;
+                    }
+                    else if (AlignPoint.Width >= 0.75)
+                    {
+                        return TextAlignment.End;
+                    }
+                    else
+                    {
+                        return TextAlignment.Center;
+                    }
+                }
+            }
+
+            public VerticalAlignment VerticalAlignment
             {
                 get
                 {
                     if (AlignPoint.Height <= 0.25)
                     {
-                        return StringAlignment.Near;
+                        return VerticalAlignment.Top;
                     }
                     else if (AlignPoint.Height >= 0.75)
                     {
-                        return StringAlignment.Far;
+                        return VerticalAlignment.Bottom;
                     }
                     else
                     {
-                        return StringAlignment.Center;
+                        return VerticalAlignment.Center;
                     }
                 }
             }
@@ -101,7 +124,7 @@ namespace SpaceEngineersMap
             ["xx"] = new StringAttach(Attach.Center, Align.Center)
         };
 
-        public static (Brush TextBrush, Pen OutlinePen, GraphicsPath Path) GetTextPath(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
+        public static (Brush TextBrush, Pen OutlinePen, IPathCollection Paths) GetTextPath(string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
         {
             var lrmargin = 0;
 
@@ -119,18 +142,22 @@ namespace SpaceEngineersMap
 
             if (CommandAttachments.TryGetValue(cmdarg[0], out var attach))
             {
-                var fontheight = font.GetHeight(graphics);
-                var spacewidth = graphics.MeasureString("| |", font).Width - graphics.MeasureString("||", font).Width;
-                var attachpoint = new PointF(attach.AttachPoint.X * margin, attach.AttachPoint.Y * margin);
-                var alignpoint = attach.AlignPoint.ToPointF();
-                var halign = attach.TextAlignment;
-                var valign = attach.LineAlignment;
-
-                var format = new StringFormat
+                var talign = attach.TextAlignment;
+                var halign = attach.HorizontalAlignment;
+                var valign = attach.VerticalAlignment;
+                var format = new TextOptions(font)
                 {
-                    Alignment = halign,
-                    LineAlignment = valign
+                    TextAlignment = talign,
+                    HorizontalAlignment = halign,
+                    VerticalAlignment = valign
                 };
+
+                var spacebounds = TextBuilder.GenerateGlyphs("| |\n| |", format).Bounds;
+                var pipebounds = TextBuilder.GenerateGlyphs("||", format).Bounds;
+                var fontheight = spacebounds.Height - pipebounds.Height;
+                var spacewidth = spacebounds.Width - pipebounds.Width;
+                var attachpoint = new PointF(attach.AttachPoint.X * margin, attach.AttachPoint.Y * margin);
+                var alignpoint = (PointF)attach.AlignPoint;
 
                 var sections =
                     cmdarg[1]
@@ -147,21 +174,20 @@ namespace SpaceEngineersMap
                 {
                     if (hidepart1 && !hidepart2)
                     {
-                        sections = new[] {
+                        sections = [
                             sections[0].TakeWhile(e => e == "|").Concat(sections[1]).ToArray()
-                        };
+                        ];
                     }
                     else if (hidepart2 && !hidepart1)
                     {
-                        sections = new[] {
+                        sections = [
                             sections[0].Concat(sections[1].Reverse().TakeWhile(e => e == "|").Reverse()).ToArray()
-                        };
+                        ];
                     }
                 }
 
                 var lines = sections.SelectMany(l => l).ToArray();
                 var hrules = sections.Select(s => s.Length).ToArray();
-                var path = new GraphicsPath();
 
                 for (int i = 0; i < lines.Length; i++)
                 {
@@ -171,11 +197,11 @@ namespace SpaceEngineersMap
                     }
                     else if (lines[i].StartsWith("| "))
                     {
-                        lines[i] = "  " + lines[i].Substring(2);
+                        lines[i] = string.Concat("  ", lines[i].AsSpan(2));
                     }
                     else if (lines[i].EndsWith(" |"))
                     {
-                        lines[i] = lines[i].Substring(0, lines[i].Length - 2) + "  ";
+                        lines[i] = string.Concat(lines[i].AsSpan(0, lines[i].Length - 2), "  ");
                     }
                 }
 
@@ -193,12 +219,12 @@ namespace SpaceEngineersMap
 
                 int blanklines = 0;
 
-                if (valign == StringAlignment.Near)
+                if (valign == VerticalAlignment.Top)
                 {
                     blanklines = lines.TakeWhile(e => e == "").Count();
                     hrules = hrules.Select(e => e - blanklines).ToArray();
                 }
-                else if (valign == StringAlignment.Far)
+                else if (valign == VerticalAlignment.Bottom)
                 {
                     blanklines = lines.Reverse().TakeWhile(e => e == "").Count();
                 }
@@ -209,17 +235,18 @@ namespace SpaceEngineersMap
                 lines = lines.SkipWhile(e => e == "").Reverse().SkipWhile(e => e == "").Reverse().ToArray();
 
                 string text = string.Join("\r\n", lines);
-                path.AddString(text, font.FontFamily, (int)font.Style, font.Size, new PointF(0, 0), format);
-                var rect = path.GetBounds();
+                var glyphs = TextBuilder.GenerateGlyphs(text, format);
+                var rect = glyphs.Bounds;
+                var paths = glyphs.ToList();
 
                 float rulepos = rect.Top;
                 for (int i = 0; i < hrules.Length - 1; i++)
                 {
                     rulepos += hrules[i] * fontheight;
-                    path.AddRectangle(new RectangleF(rect.X, rulepos - 2.5f, rect.Width, 1.0f));
+                    paths.Add(new RectangularPolygon(new RectangleF(rect.X, rulepos - 2.5f, rect.Width, 1.0f)));
                 }
 
-                if (halign != StringAlignment.Center || valign != StringAlignment.Center)
+                if (halign != HorizontalAlignment.Center || valign != VerticalAlignment.Center)
                 {
                     if (attachpoint.X == 0)
                     {
@@ -241,24 +268,18 @@ namespace SpaceEngineersMap
                         linefrom = new PointF((lineto.X / Math.Abs(lineto.Y)) * linefrommargin, Math.Sign(lineto.Y) * linefrommargin);
                     }
 
-                    using (var linepath = new GraphicsPath())
+                    if (Math.Abs(linefrom.Y - lineto.Y) > 100)
                     {
-                        using (var linepen = new Pen(Color.Black, 1.0f))
-                        {
-                            linepath.AddLine(linefrom, lineto);
-                            linepath.Widen(linepen);
-                            var linetransform = new Matrix();
-                            linetransform.Translate(-attachpoint.X, -attachpoint.Y);
-                            linepath.Transform(linetransform);
-                            path.AddPath(linepath, false);
-                        }
+
                     }
+
+                    var linepath = new Path(new LinearLineSegment(linefrom - attachpoint, lineto - attachpoint)).GenerateOutline(1.0f, JointStyle.Round, EndCapStyle.Round);
+                    paths.Add(linepath);
                 }
 
-                var topleft = new PointF(pos.X + attachpoint.X, pos.Y + attachpoint.Y);
-                var transform = new Matrix();
-                transform.Translate(topleft.X, topleft.Y);
-                path.Transform(transform);
+                var topleft = pos + attachpoint;
+                var path = new PathCollection(paths).Translate(topleft);
+
                 return (textbrush, outlinepen, path);
             }
             else
@@ -267,19 +288,23 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static RectangleF? DrawText(Graphics graphics, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
+        public static RectangleF? DrawText(Image<Argb32> img, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
         {
-            var (_, _, path) = GetTextPath(graphics, desc, pos, font, textbrush, outlinepen, hidepart1, hidepart2);
+            var (_, _, path) = GetTextPath(desc, pos, font, textbrush, outlinepen, hidepart1, hidepart2);
 
             if (path != null)
             {
-                using (path)
+                img.Mutate(g =>
                 {
-                    graphics.DrawPath(outlinepen, path);
-                    graphics.FillPath(textbrush, path);
+                    g.Draw(outlinepen, path);
+                    g.Fill(textbrush, path);
+                });
 
-                    return path.GetBounds(new Matrix(), outlinepen);
-                }
+                var bounds = path.Bounds;
+
+                bounds.Inflate(outlinepen.StrokeWidth, outlinepen.StrokeWidth);
+
+                return bounds;
             }
             else
             {

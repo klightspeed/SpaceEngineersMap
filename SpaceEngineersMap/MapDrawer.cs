@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.Fonts;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace SpaceEngineersMap
 {
-    public class MapDrawer : IDisposable
+    public class MapDrawer
     {
         private readonly int Width;
         private readonly int Height;
@@ -17,8 +19,8 @@ namespace SpaceEngineersMap
         private readonly CubeFace Face;
         private readonly string[] Prefixes;
         private readonly bool IncludeAuxTravels;
-        private Graphics Graphics;
-        private Region BoundsRegion;
+        private readonly Image<Argb32> Image;
+        private List<IPath> BoundsPaths;
         private Pen GridPen;
         private Pen TravelPen;
         private Pen TravelPen2;
@@ -36,11 +38,11 @@ namespace SpaceEngineersMap
         private Brush Text2Brush;
         private Pen TextOutlinePen;
 
-        public MapDrawer(Bitmap bmp, Graphics graphics, List<ProjectedGpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes, bool includeAuxTravels)
+        public MapDrawer(Image<Argb32> bmp, List<ProjectedGpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes, bool includeAuxTravels)
         {
+            Image = bmp;
             Width = bmp.Width;
             Height = bmp.Height;
-            Graphics = graphics;
             Entries = entries;
             Rotation = rotation;
             Prefixes = prefixes;
@@ -48,107 +50,94 @@ namespace SpaceEngineersMap
             IncludeAuxTravels = includeAuxTravels && prefixes.Length == 0;
         }
 
-        public void Open()
+        public void Open(FontCollection fonts)
         {
-            GridPen = new Pen(Color.FromArgb(64, 0, 0, 0))
-            {
-                LineJoin = LineJoin.Round,
-                EndCap = LineCap.Round,
-                StartCap = LineCap.Round
-            };
-            TravelPen = new Pen(Color.Blue, 2.0f)
-            {
-                LineJoin = LineJoin.Round,
-                EndCap = LineCap.Round,
-                StartCap = LineCap.Round
-            };
-            TravelPen2 = new Pen(Color.Black, 2.0f)
-            {
-                LineJoin = LineJoin.Round,
-                EndCap = LineCap.Round,
-                StartCap = LineCap.Round
-            };
-            AltPen = new Pen(Color.DarkRed, 2.0f)
-            {
-                LineJoin = LineJoin.Round,
-                EndCap = LineCap.Round,
-                StartCap = LineCap.Round
-            };
-            MissilePen = new Pen(Color.OrangeRed, 1.0f)
-            {
-                LineJoin = LineJoin.Round,
-                EndCap = LineCap.Round,
-                StartCap = LineCap.Round
-            };
-            BotPen = new Pen(Color.FromArgb(192, 64, 0), 2.0f)
-            {
-                LineJoin = LineJoin.Round,
-                EndCap = LineCap.Round,
-                StartCap = LineCap.Round
-            };
+            GridPen = new SolidPen(new PenOptions(Color.FromRgba(0, 0, 0, 64), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            TravelPen = new SolidPen(new PenOptions(Color.Blue, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            TravelPen2 = new SolidPen(new PenOptions(Color.Black, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            AltPen = new SolidPen(new PenOptions(Color.DarkRed, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            MissilePen = new SolidPen(new PenOptions(Color.OrangeRed, 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            BotPen = new SolidPen(new PenOptions(Color.FromRgba(192, 64, 0, 255), 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             POIBrush = new SolidBrush(Color.DarkViolet);
             POI2Brush = new SolidBrush(Color.DarkGreen);
             POI3Brush = new SolidBrush(Color.DarkRed);
             POI4Brush = new SolidBrush(Color.DarkOrange);
             TickBrush = new SolidBrush(Color.LightCyan);
-            TextFont = new Font(FontFamily.GenericSansSerif, 12.0f, GraphicsUnit.Pixel);
+            TextFont = new Font(fonts.Get("Microsoft Sans Serif"), 12.0f);
             TextBrush = new SolidBrush(Color.Black);
-            Text2Font = new Font(FontFamily.GenericSerif, 12.0f, GraphicsUnit.Pixel);
+            Text2Font = new Font(fonts.Get("Microsoft Sans Serif"), 12.0f);
             Text2Brush = new SolidBrush(Color.DarkRed);
-            TextOutlinePen = new Pen(Color.White, 4.0f)
-            {
-                LineJoin = LineJoin.Round,
-                EndCap = LineCap.Round,
-                StartCap = LineCap.Round
-            };
-            BoundsRegion = new Region();
-            BoundsRegion.MakeEmpty();
+            TextOutlinePen = new SolidPen(new PenOptions(Color.White, 4.0f) { EndCapStyle = EndCapStyle.Round, JointStyle= JointStyle.Round });
+            BoundsPaths = new List<IPath>();
         }
 
         public void DrawEdges()
         {
-            Graphics.DrawRectangle(GridPen, 0, 0, Width, Height);
+            Image.Mutate(g =>
+            {
+                g.Draw(GridPen, new RectangleF(0, 0, Width, Height));
+            });
         }
 
         private void DrawPolarLatLonLines()
         {
-            var lats = new[] { 75, 60, 45 };
-            var lons = new[] { -30, -15, 0, 15, 30, 45 };
-            var latrads = lats.Select(l => (float)Math.Tan((90 - l) * Math.PI / 180) * Width / 2).ToArray();
-            var lontans = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width).ToArray();
-            var mid = Width / 2;
-
-            foreach (var latrad in latrads)
+            Image.Mutate(g =>
             {
-                Graphics.DrawEllipse(GridPen, new RectangleF(mid - latrad, mid - latrad, latrad * 2, latrad * 2));
-            }
+                var lats = new[] { 75, 60, 45 };
+                var lons = new[] { -30, -15, 0, 15, 30, 45 };
+                var latrads = lats.Select(l => (float)Math.Tan((90 - l) * Math.PI / 180) * Width / 2).ToArray();
+                var lontans = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width).ToArray();
+                var mid = Width / 2;
 
-            foreach (var lontan in lontans)
-            {
-                Graphics.DrawLine(GridPen, mid - lontan, mid - Width, mid + lontan, mid + Width);
-                Graphics.DrawLine(GridPen, mid - Width, mid + lontan, mid + Width, mid - lontan);
-            }
+                foreach (var latrad in latrads)
+                {
+                    g.Draw(GridPen, new EllipsePolygon(mid, mid, latrad));
+                }
+
+                foreach (var lontan in lontans)
+                {
+                    g.DrawLine(GridPen, new PointF(mid - lontan, mid - Width), new PointF(mid + lontan, mid + Width));
+                    g.DrawLine(GridPen, new PointF(mid - Width, mid + lontan), new PointF(mid + Width, mid - lontan));
+                }
+
+            });
         }
 
         private void DrawEquatorialLatLonLines()
         {
-            var lats = new[] { -60, -45, -30, -15, 0, 15, 30, 45, 60 };
-            var lons = new[] { -60, -45, -30, -15, 0, 15, 30, 45, 60 };
-            var lonrads = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width / 2).ToArray();
-            var lonincoss = lons.Select(l => 1.0f / (float)Math.Cos(l * Math.PI / 180)).ToArray();
-            var lattans = lats.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width / 2).ToArray();
-            var mid = Width / 2;
-
-            foreach (var lonrad in lonrads)
+            Image.Mutate(g =>
             {
-                Graphics.DrawLine(GridPen, mid - lonrad, mid - Width, mid - lonrad, mid + Width);
-            }
+                var lats = new[] { -60, -45, -30, -15, 0, 15, 30, 45, 60 };
+                var lons = new[] { -60, -45, -30, -15, 0, 15, 30, 45, 60 };
+                var lonrads = lons.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width / 2).ToArray();
+                var lonincoss = lons.Select(l => 1.0f / (float)Math.Cos(l * Math.PI / 180)).ToArray();
+                var lattans = lats.Select(l => (float)Math.Tan(l * Math.PI / 180) * Width / 2).ToArray();
+                var mid = Width / 2;
 
-            foreach (var lattan in lattans)
-            {
-                var points = Enumerable.Range(0, lons.Length).Select(i => new PointF(mid + lonrads[i], mid + lattan * lonincoss[i])).ToArray();
-                Graphics.DrawCurve(GridPen, points, 0.5f);
-            }
+                foreach (var lonrad in lonrads)
+                {
+                    g.DrawLine(GridPen, new PointF(mid - lonrad, mid - Width), new PointF(mid - lonrad, mid + Width));
+                }
+
+                foreach (var lattan in lattans)
+                {
+                    g.DrawBeziers(
+                        GridPen,
+                        new PointF(0, (float)(mid + lattan * Math.Sqrt(2))),
+                        new PointF(mid * 0.25f, mid + lattan * 1.06f),
+                        new PointF(mid * 0.787f, mid + lattan),
+                        new PointF(mid, mid + lattan)
+                    );
+
+                    g.DrawBeziers(
+                        GridPen,
+                        new PointF(mid * 2, (float)(mid + lattan * Math.Sqrt(2))),
+                        new PointF(mid * 1.75f, mid + lattan * 1.06f),
+                        new PointF(mid * 1.213f, mid + lattan),
+                        new PointF(mid, mid + lattan)
+                    );
+                }
+            });
         }
 
         public void DrawLatLonLines()
@@ -170,69 +159,78 @@ namespace SpaceEngineersMap
 
         public void DrawPOIs()
         {
-            for (int i = 0; i < Entries.Count; i++)
+            Image.Mutate(g =>
             {
-                var ent = Entries[i].RotateFlip2D(Rotation);
-                var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
-                if (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                for (int i = 0; i < Entries.Count; i++)
                 {
-                    if (ent.Name.Contains("@"))
+                    var ent = Entries[i].RotateFlip2D(Rotation);
+                    var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
+                    if (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
                     {
-                        if (IncludeAuxTravels || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                        if (ent.Name.Contains("@"))
+                        {
+                            if (IncludeAuxTravels || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                            {
+                                if (ent.Name.Contains("%"))
+                                {
+                                    var path = new EllipsePolygon(nextpoint, 3.5f);
+                                    g.Fill(POIBrush, path);
+                                    BoundsPaths.Add(path);
+                                }
+                                else if (ent.Name.Contains("$"))
+                                {
+                                    var path = new EllipsePolygon(nextpoint, 3.5f);
+                                    g.Fill(POI2Brush, path);
+                                    BoundsPaths.Add(path);
+                                }
+                            }
+                        }
+                        else
                         {
                             if (ent.Name.Contains("%"))
                             {
-                                Graphics.FillEllipse(POIBrush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                                BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                                var path = new EllipsePolygon(nextpoint, 3.5f);
+                                g.Fill(POIBrush, path);
+                                BoundsPaths.Add(path);
                             }
-                            else if (ent.Name.Contains("$"))
+                            else if (ent.Name.Contains("$") || ent.Name.Contains("[Base]") || ent.Name.Contains("[Empl]"))
                             {
-                                Graphics.FillEllipse(POI2Brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                                BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (ent.Name.Contains("%"))
-                        {
-                            Graphics.FillEllipse(POIBrush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                            BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
-                        }
-                        else if (ent.Name.Contains("$") || ent.Name.Contains("[Base]") || ent.Name.Contains("[Empl]"))
-                        {
-                            var brush = POI2Brush;
-                            if (ent.Description.StartsWith("[Bot]"))
-                            {
-                                brush = POI3Brush;
-                            }
+                                var brush = POI2Brush;
+                                if (ent.Description.StartsWith("[Bot]"))
+                                {
+                                    brush = POI3Brush;
+                                }
 
-                            if (ent.Name.Contains("[Base]"))
-                            {
-                                Graphics.FillPolygon(brush, new[] {
-                                    new PointF(nextpoint.X, nextpoint.Y - 4.5f),
-                                    new PointF(nextpoint.X + 4.5f, nextpoint.Y + 4.5f),
-                                    new PointF(nextpoint.X - 4.5f, nextpoint.Y + 4.5f),
-                                });
-                            }
-                            else if (ent.Name.Contains("[Empl]"))
-                            {
-                                Graphics.FillPolygon(brush, new[] {
-                                    new PointF(nextpoint.X, nextpoint.Y - 3.5f),
-                                    new PointF(nextpoint.X + 3.5f, nextpoint.Y + 3.5f),
-                                    new PointF(nextpoint.X - 3.5f, nextpoint.Y + 3.5f),
-                                });
-                            }
-                            else
-                            {
-                                Graphics.FillEllipse(brush, nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7);
-                            }
+                                IPath path;
 
-                            BoundsRegion.Union(new RectangleF(nextpoint.X - 3.5f, nextpoint.Y - 3.5f, 7, 7));
+                                if (ent.Name.Contains("[Base]"))
+                                {
+                                    path = new Polygon([
+                                        new PointF(nextpoint.X, nextpoint.Y - 4.5f),
+                                        new PointF(nextpoint.X + 4.5f, nextpoint.Y + 4.5f),
+                                        new PointF(nextpoint.X - 4.5f, nextpoint.Y + 4.5f),
+                                    ]);
+                                }
+                                else if (ent.Name.Contains("[Empl]"))
+                                {
+                                    path = new Polygon([
+                                        new PointF(nextpoint.X, nextpoint.Y - 3.5f),
+                                        new PointF(nextpoint.X + 3.5f, nextpoint.Y + 3.5f),
+                                        new PointF(nextpoint.X - 3.5f, nextpoint.Y + 3.5f),
+                                    ]);
+                                }
+                                else
+                                {
+                                    path = new EllipsePolygon(nextpoint, 3.5f);
+                                }
+
+                                g.Fill(brush, path);
+                                BoundsPaths.Add(path);
+                            }
                         }
                     }
                 }
-            }
+            });
         }
 
         private PointF CalculateControlPoint(PointF rev, PointF point, PointF fwd)
@@ -283,154 +281,152 @@ namespace SpaceEngineersMap
 
         public void DrawPath()
         {
-            var ent0 = Entries[0].RotateFlip2D(Rotation);
-            var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
-            var altpoint = point;
-            var pathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
-            var altpathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
-
-            for (int i = 1; i < Entries.Count; i++)
+            Image.Mutate(g =>
             {
-                var ent = Entries[i].RotateFlip2D(Rotation);
-                var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
+                var ent0 = Entries[0].RotateFlip2D(Rotation);
+                var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
+                var altpoint = point;
+                var pathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
+                var altpathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
 
-                var pen = ent.Name.Contains("@") ? AltPen : ((ent.Name[8] - '0') % 2 == 0 ? TravelPen2 : TravelPen);
+                for (int i = 1; i < Entries.Count; i++)
+                {
+                    var ent = Entries[i].RotateFlip2D(Rotation);
+                    var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
 
-                if (ent.Name.Contains(">"))
-                {
-                    pen = MissilePen;
-                }
-                else if (!ent.IsPlayer)
-                {
-                    pen = BotPen;
-                }
+                    var pen = ent.Name.Contains("@") ? AltPen : ((ent.Name[8] - '0') % 2 == 0 ? TravelPen2 : TravelPen);
 
-                if (!ent.Name.Contains("$") && !ent.Name.Contains("="))
-                {
-                    if (!ent.Name.Contains("^"))
+                    if (ent.Name.Contains(">"))
                     {
-                        if (ent.Name.Contains("@"))
-                        {
-                            var draw = Math.Abs(nextpoint.X - altpoint.X) < Width && Math.Abs(nextpoint.Y - altpoint.Y) < Height && (IncludeAuxTravels || Prefixes.Any(p => ent.Name.StartsWith(p)));
-                            altpathsegs.Add((draw, pen, altpoint, nextpoint));
+                        pen = MissilePen;
+                    }
+                    else if (!ent.IsPlayer)
+                    {
+                        pen = BotPen;
+                    }
 
-                            if (draw)
+                    if (!ent.Name.Contains("$") && !ent.Name.Contains("="))
+                    {
+                        if (!ent.Name.Contains("^"))
+                        {
+                            if (ent.Name.Contains("@"))
                             {
-                                using (var path = new GraphicsPath())
+                                var draw = Math.Abs(nextpoint.X - altpoint.X) < Width && Math.Abs(nextpoint.Y - altpoint.Y) < Height && (IncludeAuxTravels || Prefixes.Any(p => ent.Name.StartsWith(p)));
+                                altpathsegs.Add((draw, pen, altpoint, nextpoint));
+
+                                if (draw)
                                 {
-                                    path.AddLine(altpoint, nextpoint);
-                                    BoundsRegion.Union(path.GetBounds(new Matrix(), AltPen));
+                                    BoundsPaths.Add(new Path(new LinearLineSegment(altpoint, nextpoint)).GenerateOutline(AltPen.StrokeWidth));
                                 }
                             }
+                            else
+                            {
+                                bool draw = Math.Abs(nextpoint.X - point.X) < Width && Math.Abs(nextpoint.Y - point.Y) < Height && (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p)));
+
+                                pathsegs.Add((draw, pen, point, nextpoint));
+
+                                if (draw)
+                                {
+                                    BoundsPaths.Add(new Path(new LinearLineSegment(altpoint, point)).GenerateOutline(AltPen.StrokeWidth));
+                                }
+                            }
+                        }
+
+                        if (ent.Name.Contains("@"))
+                        {
+                            altpoint = nextpoint;
                         }
                         else
                         {
-                            bool draw = Math.Abs(nextpoint.X - point.X) < Width && Math.Abs(nextpoint.Y - point.Y) < Height && (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p)));
-
-                            pathsegs.Add((draw, pen, point, nextpoint));
-
-                            if (draw)
-                            {
-                                using (var path = new GraphicsPath())
-                                {
-                                    path.AddLine(point, nextpoint);
-                                    BoundsRegion.Union(path.GetBounds(new Matrix(), TravelPen));
-                                }
-                            }
+                            altpoint = point = nextpoint;
                         }
                     }
-
-                    if (ent.Name.Contains("@"))
-                    {
-                        altpoint = nextpoint;
-                    }
-                    else
-                    {
-                        altpoint = point = nextpoint;
-                    }
                 }
-            }
 
-            var pathbezier = new List<(bool Draw, Pen Pen, PointF Start, PointF Ctrl1, PointF Ctrl2, PointF End)>();
+                var pathbezier = new List<(bool Draw, Pen Pen, PointF Start, PointF Ctrl1, PointF Ctrl2, PointF End)>();
 
-            for (int i = 0; i < altpathsegs.Count; i++)
-            {
-                var pathseg = altpathsegs[i];
-                var prev = i <= 0 ? pathseg : altpathsegs[i - 1];
-                var next = i >= altpathsegs.Count - 1 ? pathseg : altpathsegs[i + 1];
-                PointF ctrl1 = prev.End == pathseg.Start ? CalculateControlPoint(prev.Start, pathseg.Start, pathseg.End) : pathseg.Start;
-                PointF ctrl2 = next.Start == pathseg.End ? CalculateControlPoint(next.End, pathseg.End, pathseg.Start) : pathseg.End;
-                (ctrl1, ctrl2) = ExtendControlPoints(pathseg.Start, ctrl1, ctrl2, pathseg.End);
-                pathbezier.Add((pathseg.Draw, pathseg.Pen, pathseg.Start, ctrl1, ctrl2, pathseg.End));
-            }
-
-            for (int i = 0; i < pathsegs.Count; i++)
-            {
-                var pathseg = pathsegs[i];
-                var prev = i <= 0 ? pathseg : pathsegs[i - 1];
-                var next = i >= pathsegs.Count - 1 ? pathseg : pathsegs[i + 1];
-                PointF ctrl1 = prev.End == pathseg.Start ? CalculateControlPoint(prev.Start, pathseg.Start, pathseg.End) : pathseg.Start;
-                PointF ctrl2 = next.Start == pathseg.End ? CalculateControlPoint(next.End, pathseg.End, pathseg.Start) : pathseg.End;
-                (ctrl1, ctrl2) = ExtendControlPoints(pathseg.Start, ctrl1, ctrl2, pathseg.End);
-                pathbezier.Add((pathseg.Draw, pathseg.Pen, pathseg.Start, ctrl1, ctrl2, pathseg.End));
-            }
-
-            foreach (var (draw, pen, start, ctrl1, ctrl2, end) in pathbezier)
-            {
-                if (draw)
+                for (int i = 0; i < altpathsegs.Count; i++)
                 {
-                    var dc0 = new SizeF(end.X - start.X, end.Y - start.Y);
-                    var dc1 = new SizeF(ctrl1.X - start.X, ctrl1.Y - start.Y);
-                    var dc2 = new SizeF(ctrl2.X - end.X, ctrl2.Y - end.Y);
+                    var pathseg = altpathsegs[i];
+                    var prev = i <= 0 ? pathseg : altpathsegs[i - 1];
+                    var next = i >= altpathsegs.Count - 1 ? pathseg : altpathsegs[i + 1];
+                    PointF ctrl1 = prev.End == pathseg.Start ? CalculateControlPoint(prev.Start, pathseg.Start, pathseg.End) : pathseg.Start;
+                    PointF ctrl2 = next.Start == pathseg.End ? CalculateControlPoint(next.End, pathseg.End, pathseg.Start) : pathseg.End;
+                    (ctrl1, ctrl2) = ExtendControlPoints(pathseg.Start, ctrl1, ctrl2, pathseg.End);
+                    pathbezier.Add((pathseg.Draw, pathseg.Pen, pathseg.Start, ctrl1, ctrl2, pathseg.End));
+                }
 
-                    if (dc0.Width * dc0.Width + dc0.Height * dc0.Height < 1 || dc1.Width * dc1.Width + dc1.Height * dc1.Height < 1 || dc2.Width * dc2.Width + dc2.Height * dc2.Height < 1)
+                for (int i = 0; i < pathsegs.Count; i++)
+                {
+                    var pathseg = pathsegs[i];
+                    var prev = i <= 0 ? pathseg : pathsegs[i - 1];
+                    var next = i >= pathsegs.Count - 1 ? pathseg : pathsegs[i + 1];
+                    PointF ctrl1 = prev.End == pathseg.Start ? CalculateControlPoint(prev.Start, pathseg.Start, pathseg.End) : pathseg.Start;
+                    PointF ctrl2 = next.Start == pathseg.End ? CalculateControlPoint(next.End, pathseg.End, pathseg.Start) : pathseg.End;
+                    (ctrl1, ctrl2) = ExtendControlPoints(pathseg.Start, ctrl1, ctrl2, pathseg.End);
+                    pathbezier.Add((pathseg.Draw, pathseg.Pen, pathseg.Start, ctrl1, ctrl2, pathseg.End));
+                }
+
+                foreach (var (draw, pen, start, ctrl1, ctrl2, end) in pathbezier)
+                {
+                    if (draw)
                     {
-                        Graphics.DrawLine(pen, start, end);
-                    }
-                    else
-                    {
-                        Graphics.DrawBezier(pen, start, ctrl1, ctrl2, end);
+                        var dc0 = new SizeF(end.X - start.X, end.Y - start.Y);
+                        var dc1 = new SizeF(ctrl1.X - start.X, ctrl1.Y - start.Y);
+                        var dc2 = new SizeF(ctrl2.X - end.X, ctrl2.Y - end.Y);
+
+                        if (dc0.Width * dc0.Width + dc0.Height * dc0.Height < 1 || dc1.Width * dc1.Width + dc1.Height * dc1.Height < 1 || dc2.Width * dc2.Width + dc2.Height * dc2.Height < 1)
+                        {
+                            g.DrawLine(pen, start, end);
+                        }
+                        else
+                        {
+                            g.DrawBeziers(pen, start, ctrl1, ctrl2, end);
+                        }
                     }
                 }
-            }
+            });
         }
 
         public void DrawTenMinutePoints()
         {
-            var ent0 = Entries[0].RotateFlip2D(Rotation);
-            var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
-            var prefix = ent0.Name.Substring(0, 9);
-            double sincelast = 0;
-
-            for (int i = 1; i < Entries.Count; i++)
+            Image.Mutate(g =>
             {
-                var ent = Entries[i].RotateFlip2D(Rotation);
-                var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
+                var ent0 = Entries[0].RotateFlip2D(Rotation);
+                var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
+                var prefix = ent0.Name.Substring(0, 9);
+                double sincelast = 0;
 
-                if ((Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
-                    && !ent.Name.Contains("$")
-                    && !ent.Name.Contains("=")
-                    && !ent.Name.Contains("@"))
+                for (int i = 1; i < Entries.Count; i++)
                 {
-                    sincelast++;
+                    var ent = Entries[i].RotateFlip2D(Rotation);
+                    var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
 
-                    if (!ent.Name.StartsWith(prefix))
+                    if ((Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                        && !ent.Name.Contains("$")
+                        && !ent.Name.Contains("=")
+                        && !ent.Name.Contains("@"))
                     {
-                        if (sincelast >= 6)
-                        {
-                            Graphics.FillEllipse(TickBrush, nextpoint.X - 1f, nextpoint.Y - 1f, 2, 2);
-                            sincelast = 0;
-                        }
+                        sincelast++;
 
-                        prefix = ent.Name.Substring(0, 9);
+                        if (!ent.Name.StartsWith(prefix))
+                        {
+                            if (sincelast >= 6)
+                            {
+                                g.Fill(TickBrush, new EllipsePolygon(nextpoint, 2f));
+                                sincelast = 0;
+                            }
+
+                            prefix = ent.Name.Substring(0, 9);
+                        }
                     }
                 }
-            }
+            });
         }
 
-        public List<(Brush TextBrush, Pen OutlinePen, GraphicsPath Path)> GetPOITextPaths()
+        public List<(Brush TextBrush, Pen OutlinePen, IPathCollection Path)> GetPOITextPaths()
         {
-            var paths = new List<(Brush TextBrush, Pen OutlinePen, GraphicsPath Path)>();
+            var paths = new List<(Brush TextBrush, Pen OutlinePen, IPathCollection Path)>();
 
             for (int i = 0; i < Entries.Count; i++)
             {
@@ -455,7 +451,7 @@ namespace SpaceEngineersMap
                             description = description.Substring(5).TrimStart();
                         }
 
-                        paths.Add(TextDrawing.GetTextPath(Graphics, description, nextpoint, font, brush, outlinepen, hidepart1, hidepart2));
+                        paths.Add(TextDrawing.GetTextPath(description, nextpoint, font, brush, outlinepen, hidepart1, hidepart2));
                     }
                 }
             }
@@ -488,10 +484,11 @@ namespace SpaceEngineersMap
                             description = description.Substring(5);
                         }
 
-                        var textbounds = TextDrawing.DrawText(Graphics, description, nextpoint, font, brush, outlinepen, hidepart1, hidepart2);
+                        var textbounds = TextDrawing.DrawText(Image, description, nextpoint, font, brush, outlinepen, hidepart1, hidepart2);
+
                         if (textbounds is RectangleF rect)
                         {
-                            BoundsRegion.Union(rect);
+                            BoundsPaths.Add(new RectangularPolygon(rect));
                         }
                     }
                 }
@@ -500,28 +497,17 @@ namespace SpaceEngineersMap
 
         public RectangleF? GetBounds()
         {
-            BoundsRegion.Intersect(new RectangleF(0, 0, Width, Height));
+            var clipPath = new RectangularPolygon(new RectangleF(0, 0, Width, Height));
+            var paths = new PathCollection(BoundsPaths.Select(e => e.Clip(clipPath)).Where(e => e.Bounds.Width != 0 && e.Bounds.Height != 0));
 
-            if (BoundsRegion.IsEmpty(Graphics))
+            if (paths.Bounds.Width == 0 || paths.Bounds.Height == 0)
             {
                 return null;
             }
             else
             {
-                return BoundsRegion.GetBounds(Graphics);
+                return paths.Bounds;
             }
-        }
-
-        public void Dispose()
-        {
-            TextOutlinePen?.Dispose();
-            TextBrush?.Dispose();
-            TextFont?.Dispose();
-            POIBrush?.Dispose();
-            POI2Brush?.Dispose();
-            AltPen?.Dispose();
-            TravelPen?.Dispose();
-            BoundsRegion?.Dispose();
         }
     }
 }

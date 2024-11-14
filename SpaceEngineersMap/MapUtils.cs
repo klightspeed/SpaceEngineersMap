@@ -1,8 +1,12 @@
 ﻿using MathNet.Spatial.Euclidean;
+using SixLabors.Fonts;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing;
+using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -18,6 +22,8 @@ namespace SpaceEngineersMap
         private static readonly XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
         public static string[] Faces { get; } = { "down", "back", "left", "front", "right", "up" };
+
+        public static FontCollection Fonts = new FontCollection().AddSystemFonts();
 
         public static CubeFace GetFace(string face)
         {
@@ -79,7 +85,7 @@ namespace SpaceEngineersMap
         public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname)
         {
             var namere = new Regex(@"^P\d\d\.\d\d\.\d\d\.\d\d");
-            var xdoc = XDocument.Load(Path.Combine(savedir, "Sandbox.sbc"));
+            var xdoc = XDocument.Load(System.IO.Path.Combine(savedir, "Sandbox.sbc"));
 
             var playerEntity =
                 xdoc.Root
@@ -392,7 +398,7 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static Dictionary<CubeFace, Bitmap> GetContourMaps(SEMapOptions options)
+        public static Dictionary<CubeFace, Image<Argb32>> GetContourMaps(SEMapOptions options)
         {
             var planetdir = options.PlanetDirectory;
             var maps = Faces.ToDictionary(f => f, f => Map.Load(planetdir, f));
@@ -409,7 +415,7 @@ namespace SpaceEngineersMap
             return contourmaps;
         }
 
-        public static Bitmap CreateTileMap(Dictionary<CubeFace, Bitmap> maps, CubeFace[][] tiles, Dictionary<CubeFace, Bounds> mapbounds, bool cropmap, bool croptexture, int texturesize)
+        public static Image<Argb32> CreateTileMap(Dictionary<CubeFace, Image<Argb32>> maps, CubeFace[][] tiles, Dictionary<CubeFace, Bounds> mapbounds, bool cropmap, bool croptexture, int texturesize)
         {
             var tilewidth = maps.Values.Max(v => v.Width);
             var tileheight = maps.Values.Max(v => v.Height);
@@ -449,62 +455,70 @@ namespace SpaceEngineersMap
                 boundsrect = new Rectangle((int)Math.Floor(rect.X - xmargin), (int)Math.Floor(rect.Y - ymargin), texwidth * texturesize, texheight * texturesize);
             }
 
-            var bmp = new Bitmap(boundsrect.Width, boundsrect.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            var bmp = new Image<Argb32>(boundsrect.Width, boundsrect.Height);
 
-            using (var g = Graphics.FromImage(bmp))
+            bmp.Mutate(g =>
             {
                 for (int y = 0; y < tiles.Length; y++)
                 {
                     var tilestrip = tiles[y];
+
                     for (int x = 0; x < tilestrip.Length; x++)
                     {
                         var tile = tilestrip[x];
 
                         if (maps.TryGetValue(tile, out var tilebmp))
                         {
-                            g.DrawImage(tilebmp, new Point(tilewidth * x - boundsrect.X, tileheight * y - boundsrect.Y));
+                            g.DrawImage(tilebmp, new Point(tilewidth * x - boundsrect.X, tileheight * y - boundsrect.Y), 1.0f);
                         }
                     }
                 }
-            }
+            });
 
             return bmp;
         }
 
-        public static void SaveBitmap(Bitmap bmp, string filename)
+        public static void SaveBitmap(Image bmp, string filename)
         {
             if (File.Exists(filename))
             {
                 File.Delete(filename);
             }
+
             bmp.Save(filename);
         }
 
-        public static void SaveTextures(Bitmap bmp, string basename, string extension, int texturesize)
+        public static void SaveTextures(Image bmp, string basename, string extension, int texturesize)
         {
             for (int x = 0; x < bmp.Width / texturesize; x++)
             {
                 for (int y = 0; y < bmp.Height / texturesize; y++)
                 {
                     var filename = $"{basename}+{x + 1}+{y + 1}.{extension}";
-                    using (var texbmp = new Bitmap(texturesize, texturesize, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+
+                    using var texbmp = new Image<Argb32>(texturesize, texturesize);
+
+                    texbmp.Mutate(g =>
                     {
-                        using (var g = Graphics.FromImage(texbmp))
-                        {
-                            var destrect = new Rectangle(0, 0, texturesize, texturesize);
-                            var srcrect = new Rectangle(x * texturesize, y * texturesize, texturesize, texturesize);
-                            g.DrawImage(bmp, destrect, srcrect, GraphicsUnit.Pixel);
-                        }
-                        SaveBitmap(texbmp, filename);
-                    }
+                        var destrect = new Rectangle(0, 0, texturesize, texturesize);
+                        var srcrect = new Rectangle(x * texturesize, y * texturesize, texturesize, texturesize);
+                        g.DrawImage(bmp, Point.Empty, srcrect, 1.0f);
+                    });
+
+                    SaveBitmap(texbmp, filename);
                 }
             }
         }
 
-        public static void SaveMaps(Dictionary<CubeFace, Bitmap> contourmaps, Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, SEMapOptions opts, string[] segments, string outdir, string endname)
+        public static void SaveMaps(Dictionary<CubeFace, Image<Argb32>> contourmaps, Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, SEMapOptions opts, string[] segments, string outdir, string endname)
         {
-            Dictionary<CubeFace, Bitmap> maps = new Dictionary<CubeFace, Bitmap>();
-            Bitmap tilebmp = null;
+            Dictionary<CubeFace, Image<Argb32>> maps = new Dictionary<CubeFace, Image<Argb32>>();
+            Dictionary<CubeFace, Image<Argb32>> basemaps = new Dictionary<CubeFace, Image<Argb32>>();
+            Dictionary<CubeFace, Image<Argb32>> bovlmaps = new Dictionary<CubeFace, Image<Argb32>>();
+            Dictionary<CubeFace, Image<Argb32>> wovlmaps = new Dictionary<CubeFace, Image<Argb32>>();
+            Image<Argb32> tilebmp = null;
+            Image<Argb32> basetilebmp = null;
+            Image<Argb32> ovltilebmp = null;
 
             try
             {
@@ -512,90 +526,92 @@ namespace SpaceEngineersMap
 
                 foreach (var kvp in contourmaps)
                 {
-                    var bmp = (Bitmap)kvp.Value.Clone();
-                    maps[kvp.Key] = bmp;
+                    var bmp = kvp.Value.Clone();
+                    var basemap = bmp;
+                    basemaps[kvp.Key] = bmp;
                     //bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
                     var mapbounds = new Bounds(new RectangleF(0, 0, bmp.Width, bmp.Height));
 
-                    using (var graphics = Graphics.FromImage(bmp))
-                    {
-                        graphics.SmoothingMode = SmoothingMode.HighQuality;
-                        using (var drawer = new MapDrawer(bmp, graphics, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels))
-                        {
-                            drawer.Open();
-                            drawer.DrawEdges();
-                            drawer.DrawLatLonLines();
-                        }
+                    var griddrawer = new MapDrawer(bmp, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
+                    griddrawer.Open(Fonts);
+                    griddrawer.DrawEdges();
+                    griddrawer.DrawLatLonLines();
 
+                    bmp = bmp.Clone();
+                    maps[kvp.Key] = bmp;
+
+                    var bovlbmp = new Image<Argb32>(bmp.Width, bmp.Height);
+                    bovlmaps[kvp.Key] = bovlbmp;
+
+                    foreach (var img in new[] { bmp, bovlbmp })
+                    {
                         var drawers = new List<MapDrawer>();
 
-                        try
+                        foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
                         {
-                            foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
+                            if (gpsents.Count >= 2)
                             {
-                                if (gpsents.Count >= 2)
-                                {
-                                    var drawer = new MapDrawer(bmp, graphics, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
-                                    drawers.Add(drawer);
-                                    drawer.Open();
-                                }
+                                var drawer = new MapDrawer(img, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
+                                drawers.Add(drawer);
+                                drawer.Open(Fonts);
                             }
+                        }
 
-                            var textpaths = new List<(Brush TextBrush, Pen OutlinePen, GraphicsPath Path)>();
+                        var textpaths = new List<(Brush TextBrush, Pen OutlinePen, IPathCollection Paths)>();
 
-                            foreach (var drawer in drawers)
-                            {
-                                textpaths.AddRange(drawer.GetPOITextPaths().Where(e => e != default));
-                            }
+                        foreach (var drawer in drawers)
+                        {
+                            textpaths.AddRange(drawer.GetPOITextPaths().Where(e => e != default));
+                        }
 
+                        img.Mutate(g =>
+                        {
                             foreach (var (textBrush, outlinePen, path) in textpaths)
                             {
-                                graphics.DrawPath(outlinePen, path);
+                                g.Draw(outlinePen, path);
                             }
+                        });
 
-                            foreach (var drawer in drawers)
+                        foreach (var drawer in drawers)
+                        {
+                            drawer.DrawPOIs();
+                        }
+
+                        foreach (var drawer in drawers)
+                        {
+                            drawer.DrawPath();
+                        }
+
+                        foreach (var (textBrush, outlinePen, path) in textpaths)
+                        {
+                            img.Mutate(g =>
                             {
-                                drawer.DrawPOIs();
-                            }
-
-                            foreach (var drawer in drawers)
-                            {
-                                drawer.DrawPath();
-                            }
-
-                            foreach (var (textBrush, outlinePen, path) in textpaths)
-                            {
-                                graphics.FillPath(textBrush, path);
-
-                                if (!opts.CropEnd)
-                                {
-                                    var bounds = path.GetBounds(new Matrix(), outlinePen);
-
-                                    if (bounds.Left < bmp.Width && bounds.Right >= 0 && bounds.Top < bmp.Height && bounds.Bottom >= 0)
-                                    {
-                                        mapbounds.AddRectangle(bounds);
-                                    }
-                                }
-                            }
+                                g.Fill(textBrush, path);
+                            });
 
                             if (!opts.CropEnd)
                             {
-                                foreach (var drawer in drawers)
-                                {
-                                    var bounds = drawer.GetBounds();
+                                var bounds = path.Bounds;
 
-                                    if (bounds?.Left < bmp.Width && bounds?.Right >= 0 && bounds?.Top < bmp.Height && bounds?.Bottom >= 0)
-                                    {
-                                        mapbounds.AddRectangle(bounds);
-                                    }
+                                bounds.Inflate(outlinePen.StrokeWidth, outlinePen.StrokeWidth);
+
+                                if (bounds.Left < bmp.Width && bounds.Right >= 0 && bounds.Top < bmp.Height && bounds.Bottom >= 0)
+                                {
+                                    mapbounds.AddRectangle(bounds);
                                 }
                             }
                         }
-                        finally
+
+                        if (!opts.CropEnd)
                         {
                             foreach (var drawer in drawers)
                             {
-                                drawer.Dispose();
+                                var bounds = drawer.GetBounds();
+
+                                if (bounds?.Left < bmp.Width && bounds?.Right >= 0 && bounds?.Top < bmp.Height && bounds?.Bottom >= 0)
+                                {
+                                    mapbounds.AddRectangle(bounds);
+                                }
                             }
                         }
                     }
@@ -621,29 +637,48 @@ namespace SpaceEngineersMap
 
                     gpsbounds[kvp.Key] = mapbounds;
 
-                    SaveBitmap(bmp, Path.Combine(outdir, kvp.Key.ToString() + ".png"));
+                    SaveBitmap(bmp, System.IO.Path.Combine(outdir, kvp.Key.ToString() + ".png"));
+                    SaveBitmap(basemap, System.IO.Path.Combine(outdir, kvp.Key.ToString() + "_base.png"));
+                    SaveBitmap(bovlbmp, System.IO.Path.Combine(outdir, kvp.Key.ToString() + "_overlay.png"));
                 }
 
                 if (opts.CropEnd)
                 {
                     tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, false, opts.CropTexture, opts.EndTextureSize);
-                    SaveBitmap(tilebmp, Path.Combine(outdir, "endmap.png"));
+                    SaveBitmap(tilebmp, System.IO.Path.Combine(outdir, "endmap.png"));
                 }
                 else
                 {
                     tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
-                    SaveBitmap(tilebmp, Path.Combine(outdir, "tilemap.png"));
+                    basetilebmp = MapUtils.CreateTileMap(basemaps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    ovltilebmp = MapUtils.CreateTileMap(bovlmaps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    SaveBitmap(tilebmp, System.IO.Path.Combine(outdir, "tilemap.png"));
+                    SaveBitmap(basetilebmp, System.IO.Path.Combine(outdir, "tilemap_base.png"));
+                    SaveBitmap(ovltilebmp, System.IO.Path.Combine(outdir, "tilemap_overlay.png"));
 
                     if (opts.CropTexture)
                     {
-                        SaveTextures(tilebmp, Path.Combine(outdir, "texture"), "png", segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                        SaveTextures(tilebmp, System.IO.Path.Combine(outdir, "texture"), "png", segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
                     }
                 }
             }
             finally
             {
                 tilebmp?.Dispose();
+                basetilebmp?.Dispose();
+                ovltilebmp?.Dispose();
+
                 foreach (var kvp in maps)
+                {
+                    kvp.Value.Dispose();
+                }
+
+                foreach (var kvp in basemaps)
+                {
+                    kvp.Value.Dispose();
+                }
+
+                foreach (var kvp in bovlmaps)
                 {
                     kvp.Value.Dispose();
                 }

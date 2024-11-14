@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SixLabors.ImageSharp.PixelFormats;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -19,6 +20,17 @@ namespace SpaceEngineersMap
                 Biome = (byte)((argb >> 8) & 0xFF),
                 ComplexMaterial = (byte)((argb >> 16) & 0xFF),
                 Ignore = 0
+            };
+        }
+
+        public static MapMaterial FromARGB(Argb32 argb)
+        {
+            return new MapMaterial
+            {
+                Ore = argb.B,
+                Biome = argb.G,
+                ComplexMaterial = argb.R,
+                Ignore = argb.A,
             };
         }
 
