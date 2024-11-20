@@ -156,7 +156,7 @@ namespace SpaceEngineersMap
                 var pipebounds = TextBuilder.GenerateGlyphs("||", format).Bounds;
                 var fontheight = spacebounds.Height - pipebounds.Height;
                 var spacewidth = spacebounds.Width - pipebounds.Width;
-                var attachpoint = new PointF(attach.AttachPoint.X * margin, attach.AttachPoint.Y * margin);
+                var attachpos = new PointF(0, 0);
                 var alignpoint = (PointF)attach.AlignPoint;
 
                 var sections =
@@ -205,15 +205,11 @@ namespace SpaceEngineersMap
                     }
                 }
 
-                var lineto = new PointF(attach.AttachPoint.X * linetomargin, attach.AttachPoint.Y * margin);
-
-                attachpoint.X -= lrmargin * (attach.AlignPoint.Width - 0.5f) * spacewidth * 2;
-                lineto.X -= lrmargin * (attach.AlignPoint.Width - 0.5f) * spacewidth * 2;
+                attachpos.X -= lrmargin * (attach.AlignPoint.Width - 0.5f) * spacewidth * 2;
 
                 if (lines.All(e => e == "" || e.StartsWith("  ") || e.EndsWith("  ")))
                 {
-                    lineto.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 4;
-                    attachpoint.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 4;
+                    attachpos.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 4;
                     lines = lines.Select(e => e.Trim()).ToArray();
                 }
 
@@ -229,8 +225,7 @@ namespace SpaceEngineersMap
                     blanklines = lines.Reverse().TakeWhile(e => e == "").Count();
                 }
 
-                attachpoint.Y -= fontheight * blanklines * (attach.AlignPoint.Height - 0.5f) * 2;
-                lineto.Y -= (attach.AlignPoint.Height - 0.5f) * fontheight * blanklines * 2;
+                attachpos.Y -= fontheight * blanklines * (attach.AlignPoint.Height - 0.5f) * 2;
 
                 lines = lines.SkipWhile(e => e == "").Reverse().SkipWhile(e => e == "").Reverse().ToArray();
 
@@ -246,9 +241,12 @@ namespace SpaceEngineersMap
                     paths.Add(new RectangularPolygon(new RectangleF(rect.X, rulepos - 2.5f, rect.Width, 1.0f)));
                 }
 
+                var attachpoint = new PointF(attach.AttachPoint.X * margin, attach.AttachPoint.Y * margin) + attachpos;
+                var lineto = new PointF(attach.AttachPoint.X * linetomargin, attach.AttachPoint.Y * linetomargin) + attachpos;
+
                 if (halign != HorizontalAlignment.Center || valign != VerticalAlignment.Center)
                 {
-                    if (attachpoint.X == 0)
+                    if (attach.AttachPoint.X == 0)
                     {
                         lineto.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 2;
                     }

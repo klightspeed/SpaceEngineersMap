@@ -7,6 +7,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -514,8 +515,7 @@ namespace SpaceEngineersMap
         {
             Dictionary<CubeFace, Image<Argb32>> maps = new Dictionary<CubeFace, Image<Argb32>>();
             Dictionary<CubeFace, Image<Argb32>> basemaps = new Dictionary<CubeFace, Image<Argb32>>();
-            Dictionary<CubeFace, Image<Argb32>> bovlmaps = new Dictionary<CubeFace, Image<Argb32>>();
-            Dictionary<CubeFace, Image<Argb32>> wovlmaps = new Dictionary<CubeFace, Image<Argb32>>();
+            Dictionary<CubeFace, Image<Argb32>> ovlmaps = new Dictionary<CubeFace, Image<Argb32>>();
             Image<Argb32> tilebmp = null;
             Image<Argb32> basetilebmp = null;
             Image<Argb32> ovltilebmp = null;
@@ -526,7 +526,12 @@ namespace SpaceEngineersMap
 
                 foreach (var kvp in contourmaps)
                 {
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Processing face {kvp.Key} for {System.IO.Path.GetFileName(outdir)}");
+
                     var bmp = kvp.Value.Clone();
+
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} base map cloned for {System.IO.Path.GetFileName(outdir)}");
+
                     var basemap = bmp;
                     basemaps[kvp.Key] = bmp;
                     //bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
@@ -534,84 +539,86 @@ namespace SpaceEngineersMap
 
                     var griddrawer = new MapDrawer(bmp, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
                     griddrawer.Open(Fonts);
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} map drawer opened for {System.IO.Path.GetFileName(outdir)}");
                     griddrawer.DrawEdges();
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} edges drawn for {System.IO.Path.GetFileName(outdir)}");
                     griddrawer.DrawLatLonLines();
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} lat/lon lines for {System.IO.Path.GetFileName(outdir)}");
 
-                    bmp = bmp.Clone();
-                    maps[kvp.Key] = bmp;
+                    var ovlbmp = new Image<Argb32>(bmp.Width, bmp.Height);
+                    ovlmaps[kvp.Key] = ovlbmp;
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} overlay map created for {System.IO.Path.GetFileName(outdir)}");
 
-                    var bovlbmp = new Image<Argb32>(bmp.Width, bmp.Height);
-                    bovlmaps[kvp.Key] = bovlbmp;
+                    var drawers = new List<MapDrawer>();
 
-                    foreach (var img in new[] { bmp, bovlbmp })
+                    foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
                     {
-                        var drawers = new List<MapDrawer>();
-
-                        foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
+                        if (gpsents.Count >= 2)
                         {
-                            if (gpsents.Count >= 2)
-                            {
-                                var drawer = new MapDrawer(img, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
-                                drawers.Add(drawer);
-                                drawer.Open(Fonts);
-                            }
+                            var drawer = new MapDrawer(ovlbmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
+                            drawers.Add(drawer);
+                            drawer.Open(Fonts);
                         }
+                    }
 
-                        var textpaths = new List<(Brush TextBrush, Pen OutlinePen, IPathCollection Paths)>();
+                    var textpaths = new List<(Brush TextBrush, Pen OutlinePen, IPathCollection Paths)>();
 
-                        foreach (var drawer in drawers)
-                        {
-                            textpaths.AddRange(drawer.GetPOITextPaths().Where(e => e != default));
-                        }
+                    foreach (var drawer in drawers)
+                    {
+                        textpaths.AddRange(drawer.GetPOITextPaths().Where(e => e != default));
+                    }
 
-                        img.Mutate(g =>
-                        {
-                            foreach (var (textBrush, outlinePen, path) in textpaths)
-                            {
-                                g.Draw(outlinePen, path);
-                            }
-                        });
-
-                        foreach (var drawer in drawers)
-                        {
-                            drawer.DrawPOIs();
-                        }
-
-                        foreach (var drawer in drawers)
-                        {
-                            drawer.DrawPath();
-                        }
-
+                    ovlbmp.Mutate(g =>
+                    {
                         foreach (var (textBrush, outlinePen, path) in textpaths)
                         {
-                            img.Mutate(g =>
-                            {
-                                g.Fill(textBrush, path);
-                            });
-
-                            if (!opts.CropEnd)
-                            {
-                                var bounds = path.Bounds;
-
-                                bounds.Inflate(outlinePen.StrokeWidth, outlinePen.StrokeWidth);
-
-                                if (bounds.Left < bmp.Width && bounds.Right >= 0 && bounds.Top < bmp.Height && bounds.Bottom >= 0)
-                                {
-                                    mapbounds.AddRectangle(bounds);
-                                }
-                            }
+                            g.Draw(outlinePen, path);
                         }
+                    });
+
+                    foreach (var drawer in drawers)
+                    {
+                        drawer.DrawPOIs();
+                    }
+
+                    foreach (var drawer in drawers)
+                    {
+                        drawer.DrawPath();
+                    }
+
+                    foreach (var (textBrush, outlinePen, path) in textpaths)
+                    {
+                        ovlbmp.Mutate(g =>
+                        {
+                            g.Fill(textBrush, path);
+                        });
 
                         if (!opts.CropEnd)
                         {
-                            foreach (var drawer in drawers)
-                            {
-                                var bounds = drawer.GetBounds();
+                            var bounds = path.Bounds;
 
-                                if (bounds?.Left < bmp.Width && bounds?.Right >= 0 && bounds?.Top < bmp.Height && bounds?.Bottom >= 0)
-                                {
-                                    mapbounds.AddRectangle(bounds);
-                                }
+                            bounds.Inflate(outlinePen.StrokeWidth, outlinePen.StrokeWidth);
+
+                            if (bounds.Left < bmp.Width && bounds.Right >= 0 && bounds.Top < bmp.Height && bounds.Bottom >= 0)
+                            {
+                                mapbounds.AddRectangle(bounds);
+                            }
+                        }
+                    }
+
+                    bmp = bmp.Clone(p => p.DrawImage(ovlbmp, 1.0f));
+                    maps[kvp.Key] = bmp;
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} map cloned and overlayed for {System.IO.Path.GetFileName(outdir)}");
+
+                    if (!opts.CropEnd)
+                    {
+                        foreach (var drawer in drawers)
+                        {
+                            var bounds = drawer.GetBounds();
+
+                            if (bounds?.Left < bmp.Width && bounds?.Right >= 0 && bounds?.Top < bmp.Height && bounds?.Bottom >= 0)
+                            {
+                                mapbounds.AddRectangle(bounds);
                             }
                         }
                     }
@@ -637,28 +644,50 @@ namespace SpaceEngineersMap
 
                     gpsbounds[kvp.Key] = mapbounds;
 
-                    SaveBitmap(bmp, System.IO.Path.Combine(outdir, kvp.Key.ToString() + ".png"));
-                    SaveBitmap(basemap, System.IO.Path.Combine(outdir, kvp.Key.ToString() + "_base.png"));
-                    SaveBitmap(bovlbmp, System.IO.Path.Combine(outdir, kvp.Key.ToString() + "_overlay.png"));
+                    if (!opts.CropEnd)
+                    {
+                        SaveBitmap(bmp, System.IO.Path.Combine(outdir, kvp.Key.ToString() + ".png"));
+                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} map saved for {System.IO.Path.GetFileName(outdir)}");
+                    }
+
+                    if (!File.Exists(System.IO.Path.Combine(outdir, kvp.Key.ToString() + "_base.png")))
+                    {
+                        SaveBitmap(basemap, System.IO.Path.Combine(outdir, kvp.Key.ToString() + "_base.png"));
+                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} base map saved for {System.IO.Path.GetFileName(outdir)}");
+                    }
+
+                    SaveBitmap(ovlbmp, System.IO.Path.Combine(outdir, kvp.Key.ToString() + "_overlay.png"));
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} overlay map saved for {System.IO.Path.GetFileName(outdir)}");
                 }
 
                 if (opts.CropEnd)
                 {
                     tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, false, opts.CropTexture, opts.EndTextureSize);
                     SaveBitmap(tilebmp, System.IO.Path.Combine(outdir, "endmap.png"));
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: End map saved for {System.IO.Path.GetFileName(outdir)}");
                 }
                 else
                 {
                     tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
                     basetilebmp = MapUtils.CreateTileMap(basemaps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
-                    ovltilebmp = MapUtils.CreateTileMap(bovlmaps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    ovltilebmp = MapUtils.CreateTileMap(ovlmaps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+
                     SaveBitmap(tilebmp, System.IO.Path.Combine(outdir, "tilemap.png"));
-                    SaveBitmap(basetilebmp, System.IO.Path.Combine(outdir, "tilemap_base.png"));
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile map saved for {System.IO.Path.GetFileName(outdir)}");
+
+                    if (!File.Exists(System.IO.Path.Combine(outdir, "tilemap_base.png")))
+                    {
+                        SaveBitmap(basetilebmp, System.IO.Path.Combine(outdir, "tilemap_base.png"));
+                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile base map saved for {System.IO.Path.GetFileName(outdir)}");
+                    }
+
                     SaveBitmap(ovltilebmp, System.IO.Path.Combine(outdir, "tilemap_overlay.png"));
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile map saved for {System.IO.Path.GetFileName(outdir)}");
 
                     if (opts.CropTexture)
                     {
                         SaveTextures(tilebmp, System.IO.Path.Combine(outdir, "texture"), "png", segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Textures saved for {System.IO.Path.GetFileName(outdir)}");
                     }
                 }
             }
@@ -678,7 +707,7 @@ namespace SpaceEngineersMap
                     kvp.Value.Dispose();
                 }
 
-                foreach (var kvp in bovlmaps)
+                foreach (var kvp in ovlmaps)
                 {
                     kvp.Value.Dispose();
                 }

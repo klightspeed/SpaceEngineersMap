@@ -1,6 +1,7 @@
 ﻿using MathNet.Spatial.Euclidean;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
@@ -392,6 +393,7 @@ namespace SpaceEngineersMap
                         var distoverground = GetDistanceOverGround(gpsentlists, segment.prefixes, opts.PlanetPosition);
                         var elevchange = GetElevationChange(gpsentlists, segment.prefixes, opts.PlanetPosition);
                         Console.WriteLine($"Processing segment {segment.name} (Total {distance / 1000:0.00}km / Ground {distoverground / 1000:0.00}km / Elev {elevchange / 1000:0.00}km)");
+                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Processing segment {segment.name} (Total {distance / 1000:0.00}km / Ground {distoverground / 1000:0.00}km / Elev {elevchange / 1000:0.00}km)");
                         string segdir = opts.OutputDirectory;
 
                         if (segment.prefixes.Length != 0)
