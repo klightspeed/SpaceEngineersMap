@@ -152,10 +152,8 @@ namespace SpaceEngineersMap
                     VerticalAlignment = valign
                 };
 
-                var spacebounds = TextBuilder.GenerateGlyphs("| |\n| |", format).Bounds;
-                var pipebounds = TextBuilder.GenerateGlyphs("||", format).Bounds;
-                var fontheight = spacebounds.Height - pipebounds.Height;
-                var spacewidth = spacebounds.Width - pipebounds.Width;
+                var spacewidth = TextMeasurer.MeasureBounds(new string(' ', 100), format).Width / 100;
+                var fontheight = TextMeasurer.MeasureAdvance(string.Join('\n', Enumerable.Repeat(' ', 100)), format).Height / 100;
                 var attachpos = new PointF(0, 0);
                 var alignpoint = (PointF)attach.AlignPoint;
 
@@ -234,11 +232,26 @@ namespace SpaceEngineersMap
                 var rect = glyphs.Bounds;
                 var paths = glyphs.ToList();
 
-                float rulepos = rect.Top;
                 for (int i = 0; i < hrules.Length - 1; i++)
                 {
-                    rulepos += hrules[i] * fontheight;
-                    paths.Add(new RectangularPolygon(new RectangleF(rect.X, rulepos - 2.5f, rect.Width, 1.0f)));
+                    var rulepos = fontheight * hrules[i];
+                    var uline = hrules[i] <= 0 ? "" : lines[hrules[i] - 1];
+                    var lline = hrules[i] >= lines.Length ? "" : lines[hrules[i]];
+                    var hrulebounds = TextMeasurer.MeasureBounds(uline + "\n" + lline, format);
+                    var hrulelen = hrulebounds.Width;
+                    var hrulemargin = hrulebounds.X;
+
+                    switch (format.VerticalAlignment)
+                    {
+                        case VerticalAlignment.Bottom:
+                            rulepos -= fontheight * lines.Length;
+                            break;
+                        case VerticalAlignment.Center:
+                            rulepos -= fontheight * lines.Length / 2;
+                            break;
+                    }
+
+                    paths.Add(new RectangularPolygon(new RectangleF(hrulemargin, rulepos - 0.5f, hrulelen, 1.0f)));
                 }
 
                 var attachpoint = new PointF(attach.AttachPoint.X * margin, attach.AttachPoint.Y * margin) + attachpos;
