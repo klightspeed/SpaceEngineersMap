@@ -37,6 +37,8 @@ namespace SpaceEngineersMap
         public double PlanetSeaLevel { get; set; } = 0;
         public double PlanetMinRadius { get; set; } = 59400;
         public double PlanetMaxRadius { get; set; } = 67200;
+        public double MinMercatorLongitude { get; set; } = -180;
+        public double MaxMercatorLongitude { get; set; } = 180;
         public CubeFace[][] TileFaces { get; set; }
         public Dictionary<CubeFace, RotateFlipType> FaceRotations { get; set; }
         public Vector3D PlanetPosition { get; set; } = new Vector3D(0, 0, 0);
@@ -191,7 +193,8 @@ namespace SpaceEngineersMap
                     [CubeFace.Left] = RotateFlipType.Rotate180FlipNone,
                     [CubeFace.Front] = RotateFlipType.Rotate180FlipNone,
                     [CubeFace.Right] = RotateFlipType.Rotate180FlipNone,
-                    [CubeFace.Back] = RotateFlipType.Rotate180FlipNone
+                    [CubeFace.Back] = RotateFlipType.Rotate180FlipNone,
+                    [CubeFace.Mercator] = RotateFlipType.RotateNoneFlipNone
                 }
             };
 
@@ -328,6 +331,16 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--noreliefshading")
                 {
                     opts.ReliefShading = false;
+                }
+                else if (args[i] == "--minlon" && i < args.Length - 1)
+                {
+                    opts.MinMercatorLongitude = double.Parse(args[i + 1]);
+                    i++;
+                }
+                else if (args[i] == "--maxlon" && i < args.Length - 1)
+                {
+                    opts.MaxMercatorLongitude = double.Parse(args[i + 1]);
+                    i++;
                 }
                 else if (args[i] == "--help" || args[i] == "/?")
                 {

@@ -14,6 +14,7 @@ namespace SpaceEngineersMap
         Left,
         Front,
         Right,
-        Up
+        Up,
+        Mercator
     }
 }

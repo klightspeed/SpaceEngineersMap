@@ -19,6 +19,8 @@ namespace SpaceEngineersMap
         private readonly CubeFace Face;
         private readonly string[] Prefixes;
         private readonly bool IncludeAuxTravels;
+        private readonly double MinMercatorLongitude;
+        private readonly double MaxMercatorLongitude;
         private readonly Image<Argb32> Image;
         private List<IPath> BoundsPaths;
         private Pen GridPen;
@@ -38,7 +40,7 @@ namespace SpaceEngineersMap
         private Brush Text2Brush;
         private Pen TextOutlinePen;
 
-        public MapDrawer(Image<Argb32> bmp, List<ProjectedGpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes, bool includeAuxTravels)
+        public MapDrawer(Image<Argb32> bmp, List<ProjectedGpsEntry> entries, RotateFlipType rotation, CubeFace face, string[] prefixes, bool includeAuxTravels, double minMercatorLongitude, double maxMercatorLongitude)
         {
             Image = bmp;
             Width = bmp.Width;
@@ -48,6 +50,8 @@ namespace SpaceEngineersMap
             Prefixes = prefixes;
             Face = face;
             IncludeAuxTravels = includeAuxTravels && prefixes.Length == 0;
+            MinMercatorLongitude = minMercatorLongitude;
+            MaxMercatorLongitude = maxMercatorLongitude;
         }
 
         public void Open(FontCollection fonts)
@@ -71,11 +75,31 @@ namespace SpaceEngineersMap
             BoundsPaths = new List<IPath>();
         }
 
+        private void DrawMercatorFaceEdges(IImageProcessingContext g)
+        {
+            var minofs = MinMercatorLongitude % 30;
+
+            if (minofs < 0)
+            {
+                minofs += 30;
+            }
+
+            minofs *= 2048.0 / 90;
+
+        }
+
         public void DrawEdges()
         {
             Image.Mutate(g =>
             {
-                g.Draw(GridPen, new RectangleF(0, 0, Width, Height));
+                if (Face != CubeFace.Mercator)
+                {
+                    g.Draw(GridPen, new RectangleF(0, 0, Width, Height));
+                }
+                else
+                {
+                    DrawMercatorFaceEdges(g);
+                }
             });
         }
 
@@ -140,6 +164,37 @@ namespace SpaceEngineersMap
             });
         }
 
+        private void DrawMercatorLatLonLines()
+        {
+            Image.Mutate(g =>
+            {
+                var lats = new[] { -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75 };
+                var lattans = lats.Select(l => (float)(Math.Tan(l * Math.PI / 180) * Math.PI * 2048 / 4)).ToArray();
+                var mid = Height / 2;
+
+                var minofs = MinMercatorLongitude % 30;
+
+                if (minofs < 0)
+                {
+                    minofs += 30;
+                }
+
+                minofs *= 2048.0 / 90;
+
+                while (minofs < Width)
+                {
+                    g.DrawLine(GridPen, new PointF((float)minofs, 0), new PointF((float)minofs, Height));
+
+                    minofs += 2048.0 / 6;
+                }
+
+                foreach (var lattan in lattans)
+                {
+                    g.DrawLine(GridPen, new PointF(0, lattan + mid), new PointF(Width, lattan + mid));
+                }
+            });
+        }
+
         public void DrawLatLonLines()
         {
             switch (Face)
@@ -153,6 +208,9 @@ namespace SpaceEngineersMap
                 case CubeFace.Left:
                 case CubeFace.Right:
                     DrawEquatorialLatLonLines();
+                    break;
+                case CubeFace.Mercator:
+                    DrawMercatorLatLonLines();
                     break;
             }
         }

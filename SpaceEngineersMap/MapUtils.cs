@@ -42,6 +42,8 @@ namespace SpaceEngineersMap
                     return CubeFace.Front;
                 case "back":
                     return CubeFace.Back;
+                case "mercator":
+                    return CubeFace.Mercator;
                 default:
                     return CubeFace.None;
             }
@@ -83,7 +85,7 @@ namespace SpaceEngineersMap
             return (new Vector3D(0, 0, 0), new Quaternion(1, 0, 0, 0));
         }
 
-        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname)
+        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname, double minMercatorLon = -180, double maxMercatorLon = 180)
         {
             var namere = new Regex(@"^P\d\d\w?\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(System.IO.Path.Combine(savedir, "Sandbox.sbc"));
@@ -125,7 +127,34 @@ namespace SpaceEngineersMap
 
             endname = gpsentlists.Where(e => e.Count >= 1 && e.Any(g => g.IsPlayer == true)).Select(e => e.Last().Name).OrderByDescending(e => e).FirstOrDefault();
 
-            return Faces.Select(f => GetFace(f)).ToDictionary(f => f, f => gpsentlists.Select(glist => glist.Select(g => g.Project(1024, 1024, planetPos, planetRot, f, rotate45)).Where(e => e != null).ToList()).ToList());
+            var entsByFace =
+                Faces
+                    .Select(f => GetFace(f))
+                    .ToDictionary(
+                        f => f,
+                        f => gpsentlists
+                                .Select(glist =>
+                                    glist.Select(g => g.Project(1024, 1024, planetPos, planetRot, f, rotate45))
+                                         .Where(e => e != null)
+                                         .ToList()
+                                )
+                                .ToList()
+                    );
+
+            var latLonMult = 1024 * 360.0 / Math.PI / 90;
+            maxMercatorLon *= Math.PI / 180.0;
+            minMercatorLon *= Math.PI / 180.0;
+
+            entsByFace[CubeFace.Mercator] =
+                gpsentlists
+                    .Select(glist =>
+                        glist.Select(g => g.ProjectMercator(1024, planetPos, planetRot, minMercatorLon, maxMercatorLon, latLonMult, latLonMult))
+                             .Where(e => e != null)
+                             .ToList()
+                    )
+                    .ToList();
+
+            return entsByFace;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -399,6 +428,36 @@ namespace SpaceEngineersMap
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3D ProjectMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult)
+        {
+            if (coords.X == 0 && coords.Z == 0)
+            {
+                return Vector3D.NaN;
+            }
+
+            var y = coords.Y / Math.Sqrt(coords.X * coords.X + coords.Z * coords.Z);
+            var lon = Math.Atan2(coords.X, -coords.Z) - (minMercatorLon + maxMercatorLon) / 2;
+
+            while (lon < -Math.PI)
+            {
+                lon += Math.PI * 2;
+            }
+
+            while (lon >= Math.PI)
+            {
+                lon -= Math.PI * 2;
+            }
+
+            return new Vector3D(lon * lonMult, y * latMult, mult);
+        }
+
+        private static Image<Argb32> CreateMercatorContourMap(Dictionary<string, Map> maps, SEMapOptions options)
+        {
+            var map = Map.CreateMercatorMap(maps, options.MinMercatorLongitude, options.MaxMercatorLongitude);
+            return map.CreateContourMap(options);
+        }
+
         public static Dictionary<CubeFace, Image<Argb32>> GetContourMaps(SEMapOptions options)
         {
             var planetdir = options.PlanetDirectory;
@@ -413,6 +472,8 @@ namespace SpaceEngineersMap
             CopyMapEdges(maps);
 
             var contourmaps = maps.ToDictionary(kvp => GetFace(kvp.Key), kvp => kvp.Value.CreateContourMap(options));
+
+            contourmaps[CubeFace.Mercator] = CreateMercatorContourMap(maps, options);
             return contourmaps;
         }
 
@@ -537,7 +598,7 @@ namespace SpaceEngineersMap
                     //bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
                     var mapbounds = new Bounds(new RectangleF(0, 0, bmp.Width, bmp.Height));
 
-                    var griddrawer = new MapDrawer(bmp, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
+                    var griddrawer = new MapDrawer(bmp, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude);
                     griddrawer.Open(Fonts);
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} map drawer opened for {System.IO.Path.GetFileName(outdir)}");
                     griddrawer.DrawEdges();
@@ -555,7 +616,7 @@ namespace SpaceEngineersMap
                     {
                         if (gpsents.Count >= 2)
                         {
-                            var drawer = new MapDrawer(ovlbmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels);
+                            var drawer = new MapDrawer(ovlbmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude);
                             drawers.Add(drawer);
                             drawer.Open(Fonts);
                         }

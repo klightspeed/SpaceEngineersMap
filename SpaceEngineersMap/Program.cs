@@ -383,7 +383,7 @@ namespace SpaceEngineersMap
             do
             {
                 Console.WriteLine("Getting GPS entries");
-                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, opts.PlanetPosition, opts.PlanetRotation, out var endname);
+                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, opts.PlanetPosition, opts.PlanetRotation, out var endname, opts.MinMercatorLongitude, opts.MaxMercatorLongitude);
                 var segments = GetSegmentPrefixes(gpsentlists, opts.ChapterParts);
 
                 foreach (var segment in segments)

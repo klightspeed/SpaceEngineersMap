@@ -7,6 +7,7 @@ using System.Linq;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using System.Runtime.InteropServices.Marshalling;
+using MathNet.Spatial.Euclidean;
 
 namespace SpaceEngineersMap
 {
@@ -66,6 +67,53 @@ namespace SpaceEngineersMap
                 Name = name,
                 Heights = hmaprows,
                 Materials = mmaprows
+            };
+        }
+
+        public static Map CreateMercatorMap(Dictionary<string, Map> maps, double minMercatorLon, double maxMercatorLon)
+        {
+            var width = (int)((maxMercatorLon - minMercatorLon) * 2048 / 90) + 2;
+
+            var heights = new ushort[width][];
+            var materials = new MapMaterial[width][];
+            var torad = Math.PI / 4096;
+            var mult = 1024;
+            var radius = 50000;
+            minMercatorLon *= Math.PI / 180;
+
+            for (int py = 0; py < heights.Length; py++)
+            {
+                var lineheights = heights[py] = new ushort[width];
+                var linematerials = materials[py] = new MapMaterial[width];
+
+                for (int px = 0; px < lineheights.Length; px++)
+                {
+                    var lon = (px - 1) * torad + minMercatorLon;
+                    var lattan = (py - heights.Length / 2) * torad;
+
+                    var pos = new Vector3D(Math.Sin(lon) * radius, lattan * radius, -Math.Cos(lon) * radius);
+                    var (pface, ppoint) = MapUtils.Project(pos, mult, mult, false);
+                    var x = ppoint.X + mult + 0.5;
+                    var xi = (int)x;
+                    var xf = x - xi;
+                    var y = ppoint.Y + mult + 0.5;
+                    var yi = (int)y;
+                    var yf = y - yi;
+                    var pmap = maps[pface.ToString().ToLower()];
+                    var hgt = (pmap.Heights[yi + 0][xi + 0] * (1 - xf) + pmap.Heights[yi + 0][xi + 1] * xf) * (1 - yf)
+                            + (pmap.Heights[yi + 1][xi + 0] * (1 - xf) + pmap.Heights[yi + 1][xi + 1] * xf) * yf;
+                    var mat = pmap.Materials[(int)(x + 0.5)][(int)(y + 0.5)];
+                    lineheights[px] = (ushort)hgt;
+                    linematerials[px] = mat;
+                }
+            }
+
+            return new Map
+            {
+                Face = CubeFace.Mercator,
+                Name = "mercator",
+                Heights = heights,
+                Materials = materials
             };
         }
 

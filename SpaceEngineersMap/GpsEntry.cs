@@ -65,6 +65,36 @@ namespace SpaceEngineersMap
             }
         }
 
+        public ProjectedGpsEntry ProjectMercator(int mult, Vector3D planetPos, Quaternion planetRotation, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult)
+        {
+            var coords = Rotate(new Vector3D(X, Y, Z) - planetPos, planetRotation);
+            var projected = MapUtils.ProjectMercator(mult, coords, minMercatorLon, maxMercatorLon, latMult, lonMult);
+
+            if (double.IsNaN(projected.X))
+            {
+                return null;
+            }
+            else
+            {
+                return new ProjectedGpsEntry
+                {
+                    Owner = Owner,
+                    IsPlayer = IsPlayer,
+                    Name = Name,
+                    X = projected.X,
+                    Y = projected.Y,
+                    Z = projected.Z,
+                    Description = Description,
+                    ShowOnHud = ShowOnHud,
+                    OriginalEntry = this,
+                    StartPart = StartPart,
+                    StartTime = StartTime,
+                    EndPart = EndPart,
+                    EndTime = EndTime,
+                };
+            }
+        }
+
         public static GpsEntry FromXML(XElement xe, string owner, bool isPlayer)
         {
             var coords = xe.Element("coords");
