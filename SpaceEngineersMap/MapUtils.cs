@@ -660,6 +660,17 @@ namespace SpaceEngineersMap
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} overlay map saved for {System.IO.Path.GetFileName(outdir)}");
                 }
 
+                ovltilebmp = MapUtils.CreateTileMap(ovlmaps, opts.TileFaces, gpsbounds, false, false, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                SaveBitmap(ovltilebmp, System.IO.Path.Combine(outdir, "tilemap_overlay.png"));
+                Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile overlay map saved for {System.IO.Path.GetFileName(outdir)}");
+
+                if (!File.Exists(System.IO.Path.Combine(outdir, "tilemap_base.png")))
+                {
+                    basetilebmp = MapUtils.CreateTileMap(basemaps, opts.TileFaces, gpsbounds, false, false, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
+                    SaveBitmap(basetilebmp, System.IO.Path.Combine(outdir, "tilemap_base.png"));
+                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile base map saved for {System.IO.Path.GetFileName(outdir)}");
+                }
+
                 if (opts.CropEnd)
                 {
                     tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, false, opts.CropTexture, opts.EndTextureSize);
@@ -669,19 +680,8 @@ namespace SpaceEngineersMap
                 else
                 {
                     tilebmp = MapUtils.CreateTileMap(maps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
-                    basetilebmp = MapUtils.CreateTileMap(basemaps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
-                    ovltilebmp = MapUtils.CreateTileMap(ovlmaps, opts.TileFaces, gpsbounds, opts.CropTileMap, opts.CropTexture, segments.Length != 1 ? opts.FullMapTextureSize : opts.EpisodeTextureSize);
 
                     SaveBitmap(tilebmp, System.IO.Path.Combine(outdir, "tilemap.png"));
-                    Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile map saved for {System.IO.Path.GetFileName(outdir)}");
-
-                    if (!File.Exists(System.IO.Path.Combine(outdir, "tilemap_base.png")))
-                    {
-                        SaveBitmap(basetilebmp, System.IO.Path.Combine(outdir, "tilemap_base.png"));
-                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile base map saved for {System.IO.Path.GetFileName(outdir)}");
-                    }
-
-                    SaveBitmap(ovltilebmp, System.IO.Path.Combine(outdir, "tilemap_overlay.png"));
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Tile map saved for {System.IO.Path.GetFileName(outdir)}");
 
                     if (opts.CropTexture)
