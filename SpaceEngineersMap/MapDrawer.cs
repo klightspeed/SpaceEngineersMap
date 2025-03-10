@@ -165,11 +165,11 @@ namespace SpaceEngineersMap
                 {
                     var ent = Entries[i].RotateFlip2D(Rotation);
                     var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
-                    if (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                    if (Prefixes.Length == 0 || Prefixes.Any(p => ent.StartPart == p || ent.EndPart == p))
                     {
                         if (ent.Name.Contains("@"))
                         {
-                            if (IncludeAuxTravels || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                            if (IncludeAuxTravels || Prefixes.Any(p => ent.StartPart == p || ent.EndPart == p))
                             {
                                 if (ent.Name.Contains("%"))
                                 {
@@ -294,7 +294,7 @@ namespace SpaceEngineersMap
                     var ent = Entries[i].RotateFlip2D(Rotation);
                     var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
 
-                    var pen = ent.Name.Contains("@") ? AltPen : ((ent.Name[8] - '0') % 2 == 0 ? TravelPen2 : TravelPen);
+                    var pen = ent.Name.Contains("@") ? AltPen : ((ent.StartTime?.Minutes ?? 0) % 2 == 0 ? TravelPen2 : TravelPen);
 
                     if (ent.Name.Contains(">"))
                     {
@@ -311,7 +311,7 @@ namespace SpaceEngineersMap
                         {
                             if (ent.Name.Contains("@"))
                             {
-                                var draw = Math.Abs(nextpoint.X - altpoint.X) < Width && Math.Abs(nextpoint.Y - altpoint.Y) < Height && (IncludeAuxTravels || Prefixes.Any(p => ent.Name.StartsWith(p)));
+                                var draw = Math.Abs(nextpoint.X - altpoint.X) < Width && Math.Abs(nextpoint.Y - altpoint.Y) < Height && (IncludeAuxTravels || Prefixes.Any(p => ent.StartPart == p));
                                 altpathsegs.Add((draw, pen, altpoint, nextpoint));
 
                                 if (draw)
@@ -321,7 +321,7 @@ namespace SpaceEngineersMap
                             }
                             else
                             {
-                                bool draw = Math.Abs(nextpoint.X - point.X) < Width && Math.Abs(nextpoint.Y - point.Y) < Height && (Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p)));
+                                bool draw = Math.Abs(nextpoint.X - point.X) < Width && Math.Abs(nextpoint.Y - point.Y) < Height && (Prefixes.Length == 0 || Prefixes.Any(p => ent.StartPart == p));
 
                                 pathsegs.Add((draw, pen, point, nextpoint));
 
@@ -394,7 +394,8 @@ namespace SpaceEngineersMap
             {
                 var ent0 = Entries[0].RotateFlip2D(Rotation);
                 var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
-                var prefix = ent0.Name.Substring(0, 9);
+                var prefix = ent0.StartPart;
+                var time = Math.Floor(ent0.StartTime?.TotalMinutes / 10 ?? 0);
                 double sincelast = 0;
 
                 for (int i = 1; i < Entries.Count; i++)
@@ -402,14 +403,15 @@ namespace SpaceEngineersMap
                     var ent = Entries[i].RotateFlip2D(Rotation);
                     var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
 
-                    if ((Prefixes.Length == 0 || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                    if ((Prefixes.Length == 0 || Prefixes.Any(p => ent.StartPart == p || ent.EndPart == p))
                         && !ent.Name.Contains("$")
                         && !ent.Name.Contains("=")
                         && !ent.Name.Contains("@"))
                     {
                         sincelast++;
+                        var enttime = Math.Floor(ent.StartTime?.TotalMinutes / 10 ?? 0);
 
-                        if (!ent.Name.StartsWith(prefix))
+                        if (ent.StartPart != prefix || enttime != time)
                         {
                             if (sincelast >= 6)
                             {
@@ -417,7 +419,8 @@ namespace SpaceEngineersMap
                                 sincelast = 0;
                             }
 
-                            prefix = ent.Name.Substring(0, 9);
+                            prefix = ent.StartPart;
+                            time = Math.Floor(ent.StartTime?.TotalMinutes / 10 ?? 0);
                         }
                     }
                 }
@@ -434,10 +437,10 @@ namespace SpaceEngineersMap
                 if (!string.IsNullOrWhiteSpace(ent.Description) && ent.Description != "Current position")
                 {
                     var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
-                    if ((Prefixes.Length == 0 && (IncludeAuxTravels || !ent.Name.Contains("@"))) || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                    if ((Prefixes.Length == 0 && (IncludeAuxTravels || !ent.Name.Contains("@"))) || Prefixes.Any(p => ent.StartPart == p || ent.EndPart == p))
                     {
-                        bool hidepart1 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.Name.StartsWith(p));
-                        bool hidepart2 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.Name.Contains("-" + p));
+                        bool hidepart1 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.StartPart == p);
+                        bool hidepart2 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.EndPart == p);
 
                         var font = TextFont;
                         var brush = TextBrush;
@@ -467,10 +470,10 @@ namespace SpaceEngineersMap
                 if (!string.IsNullOrWhiteSpace(ent.Description) && ent.Description != "Current position")
                 {
                     var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
-                    if ((Prefixes.Length == 0 && (IncludeAuxTravels || !ent.Name.Contains("@"))) || Prefixes.Any(p => ent.Name.StartsWith(p) || ent.Name.Contains("-" + p)))
+                    if ((Prefixes.Length == 0 && (IncludeAuxTravels || !ent.Name.Contains("@"))) || Prefixes.Any(p => ent.StartPart == p || ent.EndPart == p))
                     {
-                        bool hidepart1 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.Name.StartsWith(p));
-                        bool hidepart2 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.Name.Contains("-" + p));
+                        bool hidepart1 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.StartPart == p);
+                        bool hidepart2 = Prefixes.Length != 0 && !Prefixes.Any(p => ent.EndPart == p);
 
                         var font = TextFont;
                         var brush = TextBrush;

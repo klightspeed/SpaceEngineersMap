@@ -13,15 +13,16 @@ namespace SpaceEngineersMap
 {
     class Program
     {
-        static Regex ChapterRE = new Regex(@"P(\d\d)-(\d\d)");
+        static Regex ChapterRE = new Regex(@"P(\d\d\w?)-(\d\d\w?)");
 
         static (string name, string[] prefixes)[] GetSegmentPrefixes(Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentries, string[] chapterparts)
         {
             var entries = gpsentries.Values.SelectMany(l1 => l1.SelectMany(l2 => l2)).ToList();
-            var segments = entries.Select(e => e.Name.Substring(0, 3)).Distinct().ToArray();
-            var prefixlists = new List<(string name, string[] prefixes)>();
-            prefixlists.Add(("", new string[0]));
-            prefixlists.AddRange(segments.Select(e => (e, new string[] { e })));
+            var segments = entries.Select(e => e.StartPart).Concat(entries.Select(e => e.EndPart)).OfType<string>().Distinct().ToArray();
+            List<(string name, string[] prefixes)> prefixlists =
+            [
+                ("", Array.Empty<string>()), .. segments.Select(e => (e, new string[] { e }))
+            ];
 
             foreach (var chapter in chapterparts)
             {
@@ -202,7 +203,7 @@ namespace SpaceEngineersMap
                     .Where(e =>
                         e.IsPlayer == true &&
                         !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.Name.StartsWith(p) || e.Name.Contains("-" + p)))
+                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()
@@ -237,7 +238,7 @@ namespace SpaceEngineersMap
                     .Where(e =>
                         e.IsPlayer == true &&
                         !new[] { "$", "=", "@" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.Name.StartsWith(p) || e.Name.Contains("-" + p)))
+                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()
@@ -272,7 +273,7 @@ namespace SpaceEngineersMap
                     .Where(e =>
                         e.IsPlayer == true &&
                         !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.Name.StartsWith(p) || e.Name.Contains("-" + p)))
+                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()
@@ -307,7 +308,7 @@ namespace SpaceEngineersMap
                     .Where(e =>
                         e.IsPlayer == true &&
                         !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.Name.StartsWith(p) || e.Name.Contains("-" + p)))
+                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()

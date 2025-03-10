@@ -15,7 +15,7 @@ namespace SEMapGPSMod
     {
         private string Part;
         private TimeSpan PartTime;
-        private readonly Regex NameRegex = new Regex(@"^P\d\d.\d\d.\d\d.\d\d[$%#@]*");
+        private readonly Regex NameRegex = new Regex(@"^P\d\d\w?\.\d\d\.\d\d\.\d\d[$%#@]*");
         private readonly Regex AddSecondRegex = new Regex(@"^[+]\d\d[$%#@]*");
         private bool IsInitialized;
 

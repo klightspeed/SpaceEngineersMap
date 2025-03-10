@@ -85,7 +85,7 @@ namespace SpaceEngineersMap
 
         public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname)
         {
-            var namere = new Regex(@"^P\d\d\.\d\d\.\d\d\.\d\d");
+            var namere = new Regex(@"^P\d\d\w?\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(System.IO.Path.Combine(savedir, "Sandbox.sbc"));
 
             var playerEntity =
