@@ -152,8 +152,8 @@ namespace SpaceEngineersMap
                     VerticalAlignment = valign
                 };
 
-                var spacewidth = TextMeasurer.MeasureBounds(new string(' ', 100), format).Width / 100;
-                var fontheight = TextMeasurer.MeasureAdvance(string.Join('\n', Enumerable.Repeat(' ', 100)), format).Height / 100;
+                var spacewidth = (TextMeasurer.MeasureBounds("|" + new string(' ', 100) + "|", format).Width - TextMeasurer.MeasureBounds("||",format).Width) / 100;
+                var fontheight = TextMeasurer.MeasureAdvance(string.Join('\n', Enumerable.Repeat('|', 100)), format).Height / 100;
                 var attachpos = new PointF(0, 0);
                 var alignpoint = (PointF)attach.AlignPoint;
 
