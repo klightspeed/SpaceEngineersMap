@@ -26,6 +26,7 @@ namespace SpaceEngineersMap
         private Pen GridPen;
         private Pen TravelPen;
         private Pen TravelPen2;
+        private Pen TravelPenProx;
         private Pen AltPen;
         private Pen MissilePen;
         private Pen BotPen;
@@ -59,6 +60,7 @@ namespace SpaceEngineersMap
             GridPen = new SolidPen(new PenOptions(Color.FromRgba(0, 0, 0, 64), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             TravelPen = new SolidPen(new PenOptions(Color.Blue, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             TravelPen2 = new SolidPen(new PenOptions(Color.Black, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            TravelPenProx = new SolidPen(new PenOptions(Color.FromRgba(32, 32, 64, 255), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             AltPen = new SolidPen(new PenOptions(Color.DarkRed, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             MissilePen = new SolidPen(new PenOptions(Color.OrangeRed, 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             BotPen = new SolidPen(new PenOptions(Color.FromRgba(192, 64, 0, 255), 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
@@ -343,6 +345,7 @@ namespace SpaceEngineersMap
             {
                 var ent0 = Entries[0].RotateFlip2D(Rotation);
                 var point = new PointF((float)(ent0.X + Width / 2), (float)(ent0.Y + Height / 2));
+                var time = ent0.EndTime ?? ent0.StartTime;
                 var altpoint = point;
                 var pathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
                 var altpathsegs = new List<(bool Draw, Pen Pen, PointF Start, PointF End)>();
@@ -352,9 +355,9 @@ namespace SpaceEngineersMap
                     var ent = Entries[i].RotateFlip2D(Rotation);
                     var nextpoint = new PointF((float)(ent.X + Width / 2), (float)(ent.Y + Height / 2));
 
-                    var pen = ent.Name.Contains("@") ? AltPen : ((ent.StartTime?.Minutes ?? 0) % 2 == 0 ? TravelPen2 : TravelPen);
+                    Pen pen;
 
-                    if (ent.Name.Contains(">"))
+                    if (ent.Name.Contains('>'))
                     {
                         pen = MissilePen;
                     }
@@ -362,6 +365,23 @@ namespace SpaceEngineersMap
                     {
                         pen = BotPen;
                     }
+                    else if (ent.Name.Contains('@'))
+                    {
+                        pen = AltPen;
+                    }
+                    else if (ent.Name.Contains('~'))
+                    {
+                        pen = TravelPenProx;
+                    }
+                    else if ((time?.Minutes ?? 0) % 2 == 0)
+                    {
+                        pen = TravelPen2;
+                    }
+                    else
+                    {
+                        pen = TravelPen;
+                    }
+
 
                     if (!ent.Name.Contains("$") && !ent.Name.Contains("="))
                     {
@@ -397,6 +417,7 @@ namespace SpaceEngineersMap
                         else
                         {
                             altpoint = point = nextpoint;
+                            time = ent.EndTime ?? ent.StartTime;
                         }
                     }
                 }
