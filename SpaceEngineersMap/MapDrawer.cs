@@ -24,6 +24,7 @@ namespace SpaceEngineersMap
         private readonly Image<Argb32> Image;
         private List<IPath> BoundsPaths;
         private Pen GridPen;
+        private Pen GridMinorPen;
         private Pen TravelPen;
         private Pen TravelPen2;
         private Pen TravelPenProx;
@@ -57,7 +58,8 @@ namespace SpaceEngineersMap
 
         public void Open(FontCollection fonts)
         {
-            GridPen = new SolidPen(new PenOptions(Color.FromRgba(0, 0, 0, 64), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            GridPen = new SolidPen(new PenOptions(Color.FromRgba(64, 64, 64, 64), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+            GridMinorPen = new SolidPen(new PenOptions(Color.FromRgba(64, 64, 64, 32), 0.5f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             TravelPen = new SolidPen(new PenOptions(Color.Blue, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             TravelPen2 = new SolidPen(new PenOptions(Color.Black, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
             TravelPenProx = new SolidPen(new PenOptions(Color.FromRgba(32, 32, 64, 255), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
@@ -170,29 +172,33 @@ namespace SpaceEngineersMap
         {
             Image.Mutate(g =>
             {
-                var lats = new[] { -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75 };
-                var lattans = lats.Select(l => (float)(Math.Tan(l * Math.PI / 180) * Math.PI * 2048 / 4)).ToArray();
+                var step = 5;
+                var majstep = 15;
                 var mid = Height / 2;
 
-                var minofs = MinMercatorLongitude % 30;
+                var minofs = -MinMercatorLongitude % majstep;
 
-                if (minofs < 0)
+                if (minofs > 0)
                 {
-                    minofs += 30;
+                    minofs -= majstep;
                 }
 
-                minofs *= 2048.0 / 90;
+                var maxofs = Width * 90.0 / 2048;
 
-                while (minofs < Width)
+                for (int i = 0; i < maxofs - minofs; i += step)
                 {
-                    g.DrawLine(GridPen, new PointF((float)minofs, 0), new PointF((float)minofs, Height));
-
-                    minofs += 2048.0 / 6;
+                    var x = (float)((minofs + i) * 2048.0 / 90);
+                    var pen = i % majstep == 0 ? GridPen : GridMinorPen;
+                    g.DrawLine(pen, new PointF(x, 0), new PointF(x, Height));
                 }
 
-                foreach (var lattan in lattans)
+                for (int i = 0; i < 90; i += step)
                 {
-                    g.DrawLine(GridPen, new PointF(0, lattan + mid), new PointF(Width, lattan + mid));
+                    var lattan = (float)(Math.Tan(i * Math.PI / 180) * Math.PI * 2048 / 4);
+                    var pen = i % majstep == 0 ? GridPen : GridMinorPen;
+
+                    g.DrawLine(pen, new PointF(0, mid + lattan), new PointF(Width, mid + lattan));
+                    g.DrawLine(pen, new PointF(0, mid - lattan), new PointF(Width, mid - lattan));
                 }
             });
         }

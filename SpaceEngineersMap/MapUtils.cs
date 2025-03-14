@@ -619,6 +619,7 @@ namespace SpaceEngineersMap
                             var drawer = new MapDrawer(ovlbmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude);
                             drawers.Add(drawer);
                             drawer.Open(Fonts);
+                            drawer.DrawLatLonLines();
                         }
                     }
 
