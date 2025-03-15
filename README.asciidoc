@@ -52,6 +52,15 @@ images from the GPS points in the save. If there are no GPS points of
 the format `Ppp.hh.mm.ss`, then the saved maps will be blank
 topographic maps.
 
+Originally this only supported cubemap projection, and limitations in how
+the System.Drawing library handles transparency prevented supporting
+splitting overlay from base map.
+
+Mercator projection and splitting overlay from base map were added while tracing
+link:https://www.youtube.com/playlist?list=PLfMGCUepUcNyM7OLECwBgR9LYpVl_SH_V[Splitsie's Wrong Way Out series],
+making use of the link:https://github.com/SixLabors/ImageSharp.Drawing[SixLabors.ImageSharp.Drawing]
+library.
+
 Usage
 -----
 
@@ -152,6 +161,31 @@ SpaceEngineersMap accepts the following options:
 	Include paths normally only included in the episode maps in the
 	overall map.
 
+`--sealevel <radius>`::
+	Set sea level radius. +
+        Not used if WaterMod JWater2 data attached to planet.
+
+`--minlon <longitude>`::
+	Minimum longitude for Mercator projection. +
+        Default: -180
+
+`--maxlon <longitude>`::
+	Maximum longitude for Mercator projection. +
+        Default: 180
+
+`--north <face|direction>`::
+	Override north face / direction. +
+	Default: `down`
+	Possible faces / directions:
+
+	`up` / `Y-`;;
+		`up` face / `Y-` direction +
+		Matches original compass mods
+	`down` / `Y+`;;
+		`down` face / `Y+` direction +
+		Sun sets in the west
+
+
 GPS Markers
 -----------
 
@@ -220,7 +254,7 @@ Text attachment / alignment indicators
 `_>`::
 	Left-aligned, with bottom-left anchored to right of point
 
-`->`::
+`\->`::
 	Left-aligned, with middle-left anchored to right of point
 
 `¯>`::
@@ -244,7 +278,7 @@ Text attachment / alignment indicators
 `<_`::
 	Right-aligned, with bottom-right anchored to left of point
 
-`<-`::
+`\<-`::
 	Right-aligned, with middle-right anchored to left of point
 
 `<¯`::
