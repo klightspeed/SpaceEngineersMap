@@ -39,6 +39,7 @@ namespace SpaceEngineersMap
         public double PlanetMaxRadius { get; set; } = 67200;
         public double MinMercatorLongitude { get; set; } = -180;
         public double MaxMercatorLongitude { get; set; } = 180;
+        public bool NorthIsYMinus { get; set; } = false;
         public CubeFace[][] TileFaces { get; set; }
         public Dictionary<CubeFace, RotateFlipType> FaceRotations { get; set; }
         public Vector3D PlanetPosition { get; set; } = new Vector3D(0, 0, 0);
@@ -340,6 +341,11 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--maxlon" && i < args.Length - 1)
                 {
                     opts.MaxMercatorLongitude = double.Parse(args[i + 1]);
+                    i++;
+                }
+                else if (args[i] == "--north" && i < args.Length - 1)
+                {
+                    opts.NorthIsYMinus = args[i + 1] == "up" || args[i + 1] == "Y-";
                     i++;
                 }
                 else if (args[i] == "--help" || args[i] == "/?")

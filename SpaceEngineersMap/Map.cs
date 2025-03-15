@@ -91,7 +91,7 @@ namespace SpaceEngineersMap
                     var lon = (px - 1) * torad + minMercatorLon;
                     var lattan = (py - heights.Length / 2) * torad;
 
-                    var pos = new Vector3D(Math.Sin(lon) * radius, lattan * radius, -Math.Cos(lon) * radius);
+                    var pos = new Vector3D(-Math.Sin(lon) * radius, lattan * radius, Math.Cos(lon) * radius);
                     var (pface, ppoint) = MapUtils.Project(pos, mult, mult, false);
                     var x = ppoint.X + mult + 0.5;
                     var xi = (int)x;

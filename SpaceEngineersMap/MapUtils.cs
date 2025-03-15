@@ -85,7 +85,7 @@ namespace SpaceEngineersMap
             return (new Vector3D(0, 0, 0), new Quaternion(1, 0, 0, 0));
         }
 
-        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname, double minMercatorLon = -180, double maxMercatorLon = 180)
+        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname, double minMercatorLon = -180, double maxMercatorLon = 180, bool northIsYMinus = false)
         {
             var namere = new Regex(@"^P\d\d\w?\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(System.IO.Path.Combine(savedir, "Sandbox.sbc"));
@@ -148,7 +148,7 @@ namespace SpaceEngineersMap
             entsByFace[CubeFace.Mercator] =
                 gpsentlists
                     .Select(glist =>
-                        glist.Select(g => g.ProjectMercator(1024, planetPos, planetRot, minMercatorLon, maxMercatorLon, latLonMult, latLonMult))
+                        glist.Select(g => g.ProjectMercator(1024, planetPos, planetRot, minMercatorLon, maxMercatorLon, latLonMult, latLonMult, northIsYMinus))
                              .Where(e => e != null)
                              .ToList()
                     )
@@ -429,7 +429,7 @@ namespace SpaceEngineersMap
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3D ProjectMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult)
+        public static Vector3D ProjectMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus)
         {
             if (coords.X == 0 && coords.Z == 0)
             {
@@ -437,7 +437,13 @@ namespace SpaceEngineersMap
             }
 
             var y = coords.Y / Math.Sqrt(coords.X * coords.X + coords.Z * coords.Z);
-            var lon = Math.Atan2(coords.X, -coords.Z) - (minMercatorLon + maxMercatorLon) / 2;
+            var lon = Math.Atan2(-coords.X, coords.Z) - (minMercatorLon + maxMercatorLon) / 2;
+
+            if (northIsYMinus)
+            {
+                lon = -lon;
+                y = -y;
+            }
 
             while (lon < -Math.PI)
             {
@@ -454,7 +460,7 @@ namespace SpaceEngineersMap
 
         private static Image<Argb32> CreateMercatorContourMap(Dictionary<string, Map> maps, SEMapOptions options)
         {
-            var map = Map.CreateMercatorMap(maps, options.MinMercatorLongitude, options.MaxMercatorLongitude);
+            var map = Map.CreateMercatorMap(maps, options.MinMercatorLongitude, options.MaxMercatorLongitude, options.NorthIsYMinus);
             return map.CreateContourMap(options);
         }
 
