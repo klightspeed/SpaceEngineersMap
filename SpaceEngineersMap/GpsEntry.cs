@@ -65,10 +65,10 @@ namespace SpaceEngineersMap
             }
         }
 
-        public ProjectedGpsEntry ProjectMercator(int mult, Vector3D planetPos, Quaternion planetRotation, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult)
+        public ProjectedGpsEntry ProjectMercator(int mult, Vector3D planetPos, Quaternion planetRotation, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus)
         {
             var coords = Rotate(new Vector3D(X, Y, Z) - planetPos, planetRotation);
-            var projected = MapUtils.ProjectMercator(mult, coords, minMercatorLon, maxMercatorLon, latMult, lonMult);
+            var projected = MapUtils.ProjectMercator(mult, coords, minMercatorLon, maxMercatorLon, latMult, lonMult, northIsYMinus);
 
             if (double.IsNaN(projected.X))
             {
