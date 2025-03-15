@@ -70,7 +70,7 @@ namespace SpaceEngineersMap
             };
         }
 
-        public static Map CreateMercatorMap(Dictionary<string, Map> maps, double minMercatorLon, double maxMercatorLon)
+        public static Map CreateMercatorMap(Dictionary<string, Map> maps, double minMercatorLon, double maxMercatorLon, bool northIsYMinus)
         {
             var width = (int)((maxMercatorLon - minMercatorLon) * 2048 / 90) + 2;
 
@@ -90,6 +90,12 @@ namespace SpaceEngineersMap
                 {
                     var lon = (px - 1) * torad + minMercatorLon;
                     var lattan = (py - heights.Length / 2) * torad;
+
+                    if (northIsYMinus)
+                    {
+                        lon = -lon;
+                        lattan = -lattan;
+                    }
 
                     var pos = new Vector3D(-Math.Sin(lon) * radius, lattan * radius, Math.Cos(lon) * radius);
                     var (pface, ppoint) = MapUtils.Project(pos, mult, mult, false);
