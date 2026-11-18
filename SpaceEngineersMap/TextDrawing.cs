@@ -124,7 +124,7 @@ namespace SpaceEngineersMap
             ["xx"] = new StringAttach(Attach.Center, Align.Center)
         };
 
-        public static (Brush TextBrush, Pen OutlinePen, IPathCollection Paths) GetTextPath(string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
+        public static (Brush TextBrush, Pen OutlinePen, IPathCollection Paths, string Text) GetTextPath(string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
         {
             var lrmargin = 0;
 
@@ -291,7 +291,7 @@ namespace SpaceEngineersMap
                 var topleft = pos + attachpoint;
                 var path = new PathCollection(paths).Translate(topleft);
 
-                return (textbrush, outlinepen, path);
+                return (textbrush, outlinepen, path, desc);
             }
             else
             {
@@ -299,27 +299,47 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static RectangleF? DrawText(Image<Argb32> img, string desc, PointF pos, Font font, Brush textbrush, Pen outlinepen, bool hidepart1, bool hidepart2)
+        public static void DrawText(
+                List<(DrawingOps.IDrawingOp Op, bool IncludeInBounds, object? info)> ops,
+                string desc,
+                PointF pos,
+                Font font,
+                Brush textbrush,
+                Pen outlinepen,
+                bool hidepart1,
+                bool hidepart2,
+                bool includeInBounds = false,
+                bool noOutline = false,
+                bool noFill = false
+            )
         {
-            var (_, _, path) = GetTextPath(desc, pos, font, textbrush, outlinepen, hidepart1, hidepart2);
-
-            if (path != null)
+            if (GetTextPath(desc, pos, font, textbrush, outlinepen, hidepart1, hidepart2) is (Brush brush, Pen pen, IPathCollection path, string text))
             {
-                img.Mutate(g =>
+                if (!noOutline)
                 {
-                    g.Draw(outlinepen, path);
-                    g.Fill(textbrush, path);
-                });
+                    ops.Add((
+                        new DrawingOps.StrokedPath(pen, path),
+                        includeInBounds,
+                        new
+                        {
+                            Type = "text_outline",
+                            Text = text
+                        }
+                    ));
+                }
 
-                var bounds = path.Bounds;
-
-                bounds.Inflate(outlinepen.StrokeWidth, outlinepen.StrokeWidth);
-
-                return bounds;
-            }
-            else
-            {
-                return null;
+                if (!noFill)
+                {
+                    ops.Add((
+                        new DrawingOps.FilledPath(brush, path),
+                        noOutline && includeInBounds,
+                        new
+                        {
+                            Type = "text_fill",
+                            Text = text
+                        }
+                    ));
+                }
             }
         }
     }

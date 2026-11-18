@@ -2,12 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 namespace SpaceEngineersMap
 {
@@ -383,7 +380,7 @@ namespace SpaceEngineersMap
             do
             {
                 Console.WriteLine("Getting GPS entries");
-                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, opts.PlanetPosition, opts.PlanetRotation, out var endname, opts.MinMercatorLongitude, opts.MaxMercatorLongitude, opts.NorthIsYMinus);
+                var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, opts.PlanetPosition, opts.PlanetRotation, out var endname, opts.MinMercatorLongitude, opts.MaxMercatorLongitude, opts.NorthIsYMinus, opts.TransverseMercator, opts.TransverseMercatorMeridian);
                 var segments = GetSegmentPrefixes(gpsentlists, opts.ChapterParts);
 
                 foreach (var segment in segments)
@@ -413,6 +410,7 @@ namespace SpaceEngineersMap
                 }
 
                 Console.WriteLine("Done");
+                Console.Out.Flush();
 
                 if (!opts.OnSave)
                 {
