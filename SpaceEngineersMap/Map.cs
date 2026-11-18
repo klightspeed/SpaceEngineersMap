@@ -173,11 +173,12 @@ namespace SpaceEngineersMap
 
         private bool IsSeaLevelIce(int x, int y, int width, int height)
         {
-            return !new[] { "up", "down" }.Any(e => e.Equals(Name, StringComparison.OrdinalIgnoreCase)) &&
-                   Math.Pow(y - height / 2, 2) * 3 < Math.Pow(width / 2, 2) + Math.Pow(x - width / 2, 2);
+            return !Name.Equals("up", StringComparison.OrdinalIgnoreCase)
+                && !Name.Equals("down", StringComparison.OrdinalIgnoreCase)
+                && Math.Pow(y - height / 2, 2) * 3 < Math.Pow(width / 2, 2) + Math.Pow(x - width / 2, 2);
         }
 
-        private T[][] RotateFlip<T>(T[][] input, RotateFlipType rotation)
+        private static T[][] RotateFlip<T>(T[][] input, RotateFlipType rotation)
         {
             var w = input.Length;
             var output = new T[w][];

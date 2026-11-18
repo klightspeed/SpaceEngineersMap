@@ -5,14 +5,14 @@ using System.Xml.Linq;
 
 namespace SpaceEngineersMap
 {
-    public record class GpsEntry(
-            string? Owner,
+    public partial record class GpsEntry(
+            string Owner,
             bool IsPlayer,
-            string? Name,
+            string Name,
             double X,
             double Y,
             double Z,
-            string? Description,
+            string Description,
             bool ShowOnHud,
             string? StartPart,
             TimeSpan? StartTime,
@@ -20,9 +20,9 @@ namespace SpaceEngineersMap
             TimeSpan? EndTime
         )
     {
-        private static Regex PartRE = new Regex(@"^(?<start>P\d\d\w?\.\d\d\.\d\d\.\d\d)(-(?<end>P\d\d\w?\.\d\d\.\d\d\.\d\d))?");
+        private static readonly Regex PartRE = GetPartRE();
 
-        private Vector3D Rotate(Vector3D vector, Quaternion rotation)
+        private static Vector3D Rotate(Vector3D vector, Quaternion rotation)
         {
             var u = new Vector3D(rotation.ImagX, rotation.ImagY, rotation.ImagZ);
             var s = rotation.Real;
@@ -45,10 +45,44 @@ namespace SpaceEngineersMap
             }
         }
 
-        public ProjectedGpsEntry? ProjectMercator(int mult, Vector3D planetPos, Quaternion planetRotation, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus, bool transverseMercator, double transverseMercatorMeridian)
+        public ProjectedGpsEntry? ProjectMercator(
+                int mult,
+                Vector3D planetPos,
+                Quaternion planetRotation,
+                double minMercatorLon,
+                double maxMercatorLon,
+                double latMult,
+                double lonMult,
+                bool northIsYMinus
+            )
         {
             var coords = Rotate(new Vector3D(X, Y, Z) - planetPos, planetRotation);
-            var projected = MapUtils.ProjectMercator(mult, coords, minMercatorLon, maxMercatorLon, latMult, lonMult, northIsYMinus, transverseMercator, transverseMercatorMeridian);
+            var projected = MapUtils.ProjectMercator(mult, coords, minMercatorLon, maxMercatorLon, latMult, lonMult, northIsYMinus);
+
+            if (double.IsNaN(projected.X))
+            {
+                return null;
+            }
+            else
+            {
+                return new ProjectedGpsEntry(this, projected.X, projected.Y, projected.Z);
+            }
+        }
+
+        public ProjectedGpsEntry? ProjectTransverseMercator(
+                int mult,
+                Vector3D planetPos,
+                Quaternion planetRotation,
+                double minMercatorLon,
+                double maxMercatorLon,
+                double latMult,
+                double lonMult,
+                bool northIsYMinus,
+                double transverseMercatorMeridian
+            )
+        {
+            var coords = Rotate(new Vector3D(X, Y, Z) - planetPos, planetRotation);
+            var projected = MapUtils.ProjectTransverseMercator(mult, coords, minMercatorLon, maxMercatorLon, latMult, lonMult, northIsYMinus, transverseMercatorMeridian);
 
             if (double.IsNaN(projected.X))
             {
@@ -106,48 +140,42 @@ namespace SpaceEngineersMap
                 EndTime: endtime
             );
         }
+
+        [GeneratedRegex(@"^(?<start>P\d\d\w?\.\d\d\.\d\d\.\d\d)(-(?<end>P\d\d\w?\.\d\d\.\d\d\.\d\d))?")]
+        private static partial Regex GetPartRE();
     }
 
-    public record class ProjectedGpsEntry(GpsEntry original, double x, double y, double z)
+    public record class ProjectedGpsEntry(GpsEntry Original, double X, double Y, double Z)
         : GpsEntry(
-            Owner: original.Owner,
-            IsPlayer: original.IsPlayer,
-            Name: original.Name,
-            X: x,
-            Y: y,
-            Z: z,
-            Description: original.Description,
-            ShowOnHud: original.ShowOnHud,
-            StartPart: original.StartPart,
-            StartTime: original.StartTime,
-            EndPart: original.EndPart,
-            EndTime: original.EndTime
+            Owner: Original.Owner,
+            IsPlayer: Original.IsPlayer,
+            Name: Original.Name,
+            X: X,
+            Y: Y,
+            Z: Z,
+            Description: Original.Description,
+            ShowOnHud: Original.ShowOnHud,
+            StartPart: Original.StartPart,
+            StartTime: Original.StartTime,
+            EndPart: Original.EndPart,
+            EndTime: Original.EndTime
         )
     {
-        public GpsEntry OriginalEntry { get; } = original;
+        public GpsEntry OriginalEntry { get; } = Original;
 
         public ProjectedGpsEntry RotateFlip2D(RotateFlipType rotation)
         {
-            switch (rotation)
+            return rotation switch
             {
-                case RotateFlipType.RotateNoneFlipNone:
-                default:
-                    return new ProjectedGpsEntry(OriginalEntry, X, Y, Z);
-                case RotateFlipType.Rotate90FlipNone:
-                    return new ProjectedGpsEntry(OriginalEntry, -Y, X, Z);
-                case RotateFlipType.Rotate180FlipNone:
-                    return new ProjectedGpsEntry(OriginalEntry, -X, -Y, Z);
-                case RotateFlipType.Rotate270FlipNone:
-                    return new ProjectedGpsEntry(OriginalEntry, Y, -X, Z);
-                case RotateFlipType.RotateNoneFlipX:
-                    return new ProjectedGpsEntry(OriginalEntry, -X, Y, -Z);
-                case RotateFlipType.Rotate90FlipX:
-                    return new ProjectedGpsEntry(OriginalEntry, Y, X, -Z);
-                case RotateFlipType.Rotate180FlipX:
-                    return new ProjectedGpsEntry(OriginalEntry, X, -Y, -Z);
-                case RotateFlipType.Rotate270FlipX:
-                    return new ProjectedGpsEntry(OriginalEntry, -Y, -X, -Z);
-            }
+                RotateFlipType.Rotate90FlipNone => new ProjectedGpsEntry(OriginalEntry, -Y, X, Z),
+                RotateFlipType.Rotate180FlipNone => new ProjectedGpsEntry(OriginalEntry, -X, -Y, Z),
+                RotateFlipType.Rotate270FlipNone => new ProjectedGpsEntry(OriginalEntry, Y, -X, Z),
+                RotateFlipType.RotateNoneFlipX => new ProjectedGpsEntry(OriginalEntry, -X, Y, -Z),
+                RotateFlipType.Rotate90FlipX => new ProjectedGpsEntry(OriginalEntry, Y, X, -Z),
+                RotateFlipType.Rotate180FlipX => new ProjectedGpsEntry(OriginalEntry, X, -Y, -Z),
+                RotateFlipType.Rotate270FlipX => new ProjectedGpsEntry(OriginalEntry, -Y, -X, -Z),
+                _ => new ProjectedGpsEntry(OriginalEntry, X, Y, Z),
+            };
         }
     }
 }

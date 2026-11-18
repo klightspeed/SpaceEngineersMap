@@ -8,9 +8,9 @@ using System.Text.RegularExpressions;
 
 namespace SpaceEngineersMap
 {
-    class Program
+    partial class Program
     {
-        static Regex ChapterRE = new Regex(@"P(\d\d\w?)-(\d\d\w?)");
+        static readonly Regex ChapterRE = GetChapterRE();
 
         static (string name, string[] prefixes)[] GetSegmentPrefixes(Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentries, string[] chapterparts)
         {
@@ -28,7 +28,7 @@ namespace SpaceEngineersMap
                     prefixlists.Add((chapter, segments.Where(e => e.CompareTo($"P{match.Groups[1].Value}") >= 0 && e.CompareTo($"P{match.Groups[2].Value}") <= 0).ToArray()));
                 }
             }
-            return prefixlists.ToArray();
+            return [.. prefixlists];
         }
 
         static void ShowHelp()
@@ -89,59 +89,55 @@ namespace SpaceEngineersMap
 
             using (var logfile = File.Open(Path.Combine(segdir, "Stats.txt"), FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read))
             {
-                using (var logwriter = new StreamWriter(logfile))
-                {
-                    logwriter.WriteLine($"Distance travelled: {distance / 1000:0.00}km");
-                    logwriter.WriteLine($"Distance over ground: {distoverground / 1000:0.00}km");
-                    logwriter.WriteLine($"Elevation change: {elevchange / 1000:0.00}km");
-                    logwriter.WriteLine($"Distance flying: {flightdistance / 1000:0.00}km");
-                }
+                using var logwriter = new StreamWriter(logfile);
+                logwriter.WriteLine($"Distance travelled: {distance / 1000:0.00}km");
+                logwriter.WriteLine($"Distance over ground: {distoverground / 1000:0.00}km");
+                logwriter.WriteLine($"Elevation change: {elevchange / 1000:0.00}km");
+                logwriter.WriteLine($"Distance flying: {flightdistance / 1000:0.00}km");
             }
 
             using (var logfile = File.Open(Path.Combine(segdir, "POIs.txt"), FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read))
             {
-                using (var logwriter = new StreamWriter(logfile))
+                using var logwriter = new StreamWriter(logfile);
+                logwriter.WriteLine($"Distance travelled: {distance / 1000:0.00}km");
+                logwriter.WriteLine($"Distance over ground: {distoverground / 1000:0.00}km");
+                logwriter.WriteLine($"Elevation change: {elevchange / 1000:0.00}km");
+                logwriter.WriteLine($"Distance flying: {flightdistance / 1000:0.00}km");
+
+                foreach (var (name, desc) in gpsents)
                 {
-                    logwriter.WriteLine($"Distance travelled: {distance / 1000:0.00}km");
-                    logwriter.WriteLine($"Distance over ground: {distoverground / 1000:0.00}km");
-                    logwriter.WriteLine($"Elevation change: {elevchange / 1000:0.00}km");
-                    logwriter.WriteLine($"Distance flying: {flightdistance / 1000:0.00}km");
-
-                    foreach (var (name, desc) in gpsents)
+                    if (!string.IsNullOrWhiteSpace(desc) && desc != "Current position")
                     {
-                        if (!string.IsNullOrWhiteSpace(desc) && desc != "Current position")
+                        if (segments.Length == 0 || segments.Any(p => name.StartsWith(p) || name.Contains("-" + p)))
                         {
-                            if (segments.Length == 0 || segments.Any(p => name.StartsWith(p) || name.Contains("-" + p)))
+                            bool hidepart1 = segments.Length != 0 && !segments.Any(p => name.StartsWith(p));
+                            bool hidepart2 = segments.Length != 0 && !segments.Any(p => name.Contains("-" + p));
+                            var timestamp = name.TrimEnd('%', '=', '@', '$', '^');
+                            var description = desc;
+
+                            if (description.StartsWith("[Bot]"))
                             {
-                                bool hidepart1 = segments.Length != 0 && !segments.Any(p => name.StartsWith(p));
-                                bool hidepart2 = segments.Length != 0 && !segments.Any(p => name.Contains("-" + p));
-                                var timestamp = name.TrimEnd('%', '=', '@', '$', '^');
-                                var description = desc;
+                                description = description[5..].TrimStart();
+                            }
 
-                                if (description.StartsWith("[Bot]"))
+                            var cmdarg = description.Split([' '], 2);
+
+                            if (cmdarg.Length == 2)
+                            {
+                                var sections = cmdarg[1].Split([" / ", "\n----\n"], StringSplitOptions.None).Select(e => e.Trim()).ToArray();
+
+                                if (hidepart1 && !hidepart2 && sections.Length > 1)
                                 {
-                                    description = description.Substring(5).TrimStart();
+                                    sections = sections[1..];
+                                }
+                                else if (hidepart2 && !hidepart1)
+                                {
+                                    sections = sections[0..1];
                                 }
 
-                                var cmdarg = description.Split(new[] { ' ' }, 2);
+                                description = string.Join(" / ", sections).Replace("\n", " ").Replace("  ", " ");
 
-                                if (cmdarg.Length == 2)
-                                {
-                                    var sections = cmdarg[1].Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None).Select(e => e.Trim()).ToArray();
-
-                                    if (hidepart1 && !hidepart2 && sections.Length > 1)
-                                    {
-                                        sections = sections.Skip(1).ToArray();
-                                    }
-                                    else if (hidepart2 && !hidepart1)
-                                    {
-                                        sections = new[] { sections[0] };
-                                    }
-
-                                    description = string.Join(" / ", sections).Replace("\n", " ").Replace("  ", " ");
-
-                                    logwriter.WriteLine($"[{timestamp}] {description}");
-                                }
+                                logwriter.WriteLine($"[{timestamp}] {description}");
                             }
                         }
                     }
@@ -198,27 +194,32 @@ namespace SpaceEngineersMap
                     .SelectMany(e => e)
                     .Select(e => e.OriginalEntry)
                     .Where(e =>
-                        e.IsPlayer == true &&
-                        !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
+                        e.IsPlayer == true
+                        && !e.Name.Contains('$')
+                        && !e.Name.Contains('=')
+                        && !e.Name.Contains('@')
+                        && !e.Name.Contains('~')
+                        && (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()
                     .ToList();
 
             var distance = 0.0;
-            GpsEntry lastentry = gpsents.FirstOrDefault();
 
-            for (int i = 1; i < gpsents.Count; i++)
+            if (gpsents.FirstOrDefault() is { } lastentry)
             {
-                var entry = gpsents[i];
-
-                if (!entry.Name.Contains("^"))
+                for (int i = 1; i < gpsents.Count; i++)
                 {
-                    distance += GetDistance(lastentry, entry);
-                }
+                    var entry = gpsents[i];
 
-                lastentry = entry;
+                    if (!entry.Name.Contains('^'))
+                    {
+                        distance += GetDistance(lastentry, entry);
+                    }
+
+                    lastentry = entry;
+                }
             }
 
             return distance;
@@ -233,27 +234,31 @@ namespace SpaceEngineersMap
                     .SelectMany(e => e)
                     .Select(e => e.OriginalEntry)
                     .Where(e =>
-                        e.IsPlayer == true &&
-                        !new[] { "$", "=", "@" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
+                        e.IsPlayer == true
+                        && !e.Name.Contains('$')
+                        && !e.Name.Contains('=')
+                        && !e.Name.Contains('@')
+                        && (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()
                     .ToList();
 
             var distance = 0.0;
-            GpsEntry lastentry = gpsents.FirstOrDefault();
 
-            for (int i = 1; i < gpsents.Count; i++)
+            if (gpsents.FirstOrDefault() is { } lastentry)
             {
-                var entry = gpsents[i];
-
-                if (entry.Name.Contains("~"))
+                for (int i = 1; i < gpsents.Count; i++)
                 {
-                    distance += GetDistance(lastentry, entry);
-                }
+                    var entry = gpsents[i];
 
-                lastentry = entry;
+                    if (entry.Name.Contains('~'))
+                    {
+                        distance += GetDistance(lastentry, entry);
+                    }
+                    
+                    lastentry = entry;
+                }
             }
 
             return distance;
@@ -268,27 +273,32 @@ namespace SpaceEngineersMap
                     .SelectMany(e => e)
                     .Select(e => e.OriginalEntry)
                     .Where(e =>
-                        e.IsPlayer == true &&
-                        !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
+                        e.IsPlayer == true
+                        && !e.Name.Contains('$')
+                        && !e.Name.Contains('=')
+                        && !e.Name.Contains('@')
+                        && !e.Name.Contains('~')
+                        && (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()
                     .ToList();
 
             var distance = 0.0;
-            GpsEntry lastentry = gpsents.FirstOrDefault();
 
-            for (int i = 1; i < gpsents.Count; i++)
+            if (gpsents.FirstOrDefault() is { } lastentry)
             {
-                var entry = gpsents[i];
-
-                if (!entry.Name.Contains("^"))
+                for (int i = 1; i < gpsents.Count; i++)
                 {
-                    distance += GetDistanceOverGround(lastentry, entry, planetPos);
-                }
+                    var entry = gpsents[i];
 
-                lastentry = entry;
+                    if (!entry.Name.Contains('^'))
+                    {
+                        distance += GetDistanceOverGround(lastentry, entry, planetPos);
+                    }
+
+                    lastentry = entry;
+                }
             }
 
             return distance;
@@ -303,27 +313,32 @@ namespace SpaceEngineersMap
                     .SelectMany(e => e)
                     .Select(e => e.OriginalEntry)
                     .Where(e =>
-                        e.IsPlayer == true &&
-                        !new[] { "$", "=", "@", "~" }.Any(v => e.Name.Contains(v)) &&
-                        (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
+                        e.IsPlayer == true
+                        && !e.Name.Contains('$')
+                        && !e.Name.Contains('=')
+                        && !e.Name.Contains('@')
+                        && !e.Name.Contains('~')
+                        && (segments.Length == 0 || segments.Any(p => e.StartPart == p || e.EndPart == p))
                     )
                     .OrderBy(e => e.Name)
                     .Distinct()
                     .ToList();
 
             var distance = 0.0;
-            GpsEntry lastentry = gpsents.FirstOrDefault();
 
-            for (int i = 1; i < gpsents.Count; i++)
+            if (gpsents.FirstOrDefault() is { } lastentry)
             {
-                var entry = gpsents[i];
-
-                if (!entry.Name.Contains("^"))
+                for (int i = 1; i < gpsents.Count; i++)
                 {
-                    distance += GetElevationChange(lastentry, entry, planetPos);
-                }
+                    var entry = gpsents[i];
 
-                lastentry = entry;
+                    if (!entry.Name.Contains('^'))
+                    {
+                        distance += GetElevationChange(lastentry, entry, planetPos);
+                    }
+
+                    lastentry = entry;
+                }
             }
 
             return distance;
@@ -357,15 +372,8 @@ namespace SpaceEngineersMap
         {
             var opts = SEMapOptions.FromArguments(args);
 
-            if (opts.SaveDirectory == null)
-            {
-                opts.SaveDirectory = Environment.CurrentDirectory;
-            }
-
-            if (opts.OutputDirectory == null)
-            {
-                opts.OutputDirectory = Environment.CurrentDirectory;
-            }
+            opts.SaveDirectory ??= Environment.CurrentDirectory;
+            opts.OutputDirectory ??= Environment.CurrentDirectory;
 
             if (opts.ShowHelp == true || opts.ContentDirectory == null)
             {
@@ -383,20 +391,20 @@ namespace SpaceEngineersMap
                 var gpsentlists = MapUtils.GetGPSEntries(opts.SaveDirectory, opts.PlanetName, opts.Rotate45, opts.PlanetPosition, opts.PlanetRotation, out var endname, opts.MinMercatorLongitude, opts.MaxMercatorLongitude, opts.NorthIsYMinus, opts.TransverseMercator, opts.TransverseMercatorMeridian);
                 var segments = GetSegmentPrefixes(gpsentlists, opts.ChapterParts);
 
-                foreach (var segment in segments)
+                foreach (var (name, prefixes) in segments)
                 {
-                    if (segment.prefixes.Length == 0 || !opts.CropEnd)
+                    if (prefixes.Length == 0 || !opts.CropEnd)
                     {
-                        var distance = GetTravelDistance(gpsentlists, segment.prefixes);
-                        var distoverground = GetDistanceOverGround(gpsentlists, segment.prefixes, opts.PlanetPosition);
-                        var elevchange = GetElevationChange(gpsentlists, segment.prefixes, opts.PlanetPosition);
-                        Console.WriteLine($"Processing segment {segment.name} (Total {distance / 1000:0.00}km / Ground {distoverground / 1000:0.00}km / Elev {elevchange / 1000:0.00}km)");
-                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Processing segment {segment.name} (Total {distance / 1000:0.00}km / Ground {distoverground / 1000:0.00}km / Elev {elevchange / 1000:0.00}km)");
+                        var distance = GetTravelDistance(gpsentlists, prefixes);
+                        var distoverground = GetDistanceOverGround(gpsentlists, prefixes, opts.PlanetPosition);
+                        var elevchange = GetElevationChange(gpsentlists, prefixes, opts.PlanetPosition);
+                        Console.WriteLine($"Processing segment {name} (Total {distance / 1000:0.00}km / Ground {distoverground / 1000:0.00}km / Elev {elevchange / 1000:0.00}km)");
+                        Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Processing segment {name} (Total {distance / 1000:0.00}km / Ground {distoverground / 1000:0.00}km / Elev {elevchange / 1000:0.00}km)");
                         string segdir = opts.OutputDirectory;
 
-                        if (segment.prefixes.Length != 0)
+                        if (prefixes.Length != 0)
                         {
-                            segdir = Path.Combine(segdir, segment.name);
+                            segdir = Path.Combine(segdir, name);
                         }
 
                         if (!Directory.Exists(segdir))
@@ -404,8 +412,8 @@ namespace SpaceEngineersMap
                             Directory.CreateDirectory(segdir);
                         }
 
-                        MapUtils.SaveMaps(contourmaps, gpsentlists, opts, segment.prefixes, segdir, endname);
-                        SavePOIList(gpsentlists, segment.prefixes, segdir, opts.PlanetPosition);
+                        MapUtils.SaveMaps(contourmaps, gpsentlists, opts, prefixes, segdir, endname);
+                        SavePOIList(gpsentlists, prefixes, segdir, opts.PlanetPosition);
                     }
                 }
 
@@ -421,5 +429,8 @@ namespace SpaceEngineersMap
 
             Console.WriteLine("Exiting");
         }
+
+        [GeneratedRegex(@"P(\d\d\w?)-(\d\d\w?)")]
+        private static partial Regex GetChapterRE();
     }
 }

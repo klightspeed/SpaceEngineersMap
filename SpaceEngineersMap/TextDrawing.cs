@@ -1,113 +1,66 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
-using System.Threading;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
 
 namespace SpaceEngineersMap
 {
-    public static class TextDrawing
+    public static partial class TextDrawing
     {
-        private struct StringAttach
+        private record struct StringAttach(PointF AttachPoint, SizeF AlignPoint)
         {
-            public PointF AttachPoint { get; set; }
-            public SizeF AlignPoint { get; set; }
-
-            public HorizontalAlignment HorizontalAlignment
-            {
-                get
+            public readonly HorizontalAlignment HorizontalAlignment
+                => AlignPoint switch
                 {
-                    if (AlignPoint.Width <= 0.25)
-                    {
-                        return HorizontalAlignment.Left;
-                    }
-                    else if (AlignPoint.Width >= 0.75)
-                    {
-                        return HorizontalAlignment.Right;
-                    }
-                    else
-                    {
-                        return HorizontalAlignment.Center;
-                    }
-                }
-            }
+                    { Width: <= 0.25f } => HorizontalAlignment.Left,
+                    { Width: >= 0.75f } => HorizontalAlignment.Right,
+                    _ => HorizontalAlignment.Center
+                };
 
-            public TextAlignment TextAlignment
-            {
-                get
+            public readonly TextAlignment TextAlignment
+                => AlignPoint switch
                 {
-                    if (AlignPoint.Width <= 0.25)
-                    {
-                        return TextAlignment.Start;
-                    }
-                    else if (AlignPoint.Width >= 0.75)
-                    {
-                        return TextAlignment.End;
-                    }
-                    else
-                    {
-                        return TextAlignment.Center;
-                    }
-                }
-            }
+                    { Width: <= 0.25f } => TextAlignment.Start,
+                    { Width: >= 0.75f } => TextAlignment.End,
+                    _ => TextAlignment.Center
+                };
 
-            public VerticalAlignment VerticalAlignment
-            {
-                get
+            public readonly VerticalAlignment VerticalAlignment
+                => AlignPoint switch
                 {
-                    if (AlignPoint.Height <= 0.25)
-                    {
-                        return VerticalAlignment.Top;
-                    }
-                    else if (AlignPoint.Height >= 0.75)
-                    {
-                        return VerticalAlignment.Bottom;
-                    }
-                    else
-                    {
-                        return VerticalAlignment.Center;
-                    }
-                }
-            }
-
-            public StringAttach(PointF attach, SizeF align)
-            {
-                AttachPoint = attach;
-                AlignPoint = align;
-            }
+                    { Height: <= 0.25f } => VerticalAlignment.Top,
+                    { Height: >= 0.75f } => VerticalAlignment.Bottom,
+                    _ => VerticalAlignment.Center
+                };
         }
 
         private static class Attach
         {
-            public static PointF Top = new PointF(0, -1);
-            public static PointF Left = new PointF(-1, 0);
-            public static PointF Right = new PointF(1, 0);
-            public static PointF Bottom = new PointF(0, 1);
-            public static PointF Center = new PointF(0, 0);
+            public static PointF Top = new(0, -1);
+            public static PointF Left = new(-1, 0);
+            public static PointF Right = new(1, 0);
+            public static PointF Bottom = new(0, 1);
+            public static PointF Center = new(0, 0);
         }
 
         private static class Align
         {
-            public static SizeF TopLeft = new SizeF(0, 0);
-            public static SizeF TopCentre = new SizeF(0.5f, 0);
-            public static SizeF TopRight = new SizeF(1, 0);
-            public static SizeF MiddleLeft = new SizeF(0, 0.5f);
-            public static SizeF MiddleRight = new SizeF(1, 0.5f);
-            public static SizeF BottomLeft = new SizeF(0, 1);
-            public static SizeF BottomCentre = new SizeF(0.5f, 1);
-            public static SizeF BottomRight = new SizeF(1, 1);
-            public static SizeF Center = new SizeF(0.5f, 0.5f);
+            public static SizeF TopLeft = new(0, 0);
+            public static SizeF TopCentre = new(0.5f, 0);
+            public static SizeF TopRight = new(1, 0);
+            public static SizeF MiddleLeft = new(0, 0.5f);
+            public static SizeF MiddleRight = new(1, 0.5f);
+            public static SizeF BottomLeft = new(0, 1);
+            public static SizeF BottomCentre = new(0.5f, 1);
+            public static SizeF BottomRight = new(1, 1);
+            public static SizeF Center = new(0.5f, 0.5f);
         }
 
-        private static Dictionary<string, StringAttach> CommandAttachments = new Dictionary<string, StringAttach>
+        private static readonly Dictionary<string, StringAttach> CommandAttachments = new()
         {
             ["^>"] = new StringAttach(Attach.Top, Align.BottomLeft),
             ["¯>"] = new StringAttach(Attach.Right, Align.TopLeft),
@@ -128,14 +81,14 @@ namespace SpaceEngineersMap
         {
             var lrmargin = 0;
 
-            if (Regex.IsMatch(desc, "^[|]+ "))
+            if (GetPipeSpacingRE().IsMatch(desc))
             {
-                var split = desc.Split(new[] { ' ' }, 2);
+                var split = desc.Split([' '], 2);
                 lrmargin = split[0].Length;
                 desc = split[1].TrimStart();
             }
 
-            var cmdarg = desc.Split(new[] { ' ' }, 2);
+            var cmdarg = desc.Split([' '], 2);
             var margin = 10;
             var linetomargin = 8;
             var linefrommargin = 5;
@@ -159,10 +112,10 @@ namespace SpaceEngineersMap
 
                 var sections =
                     cmdarg[1]
-                        .Split(new[] { " / ", "\n----\n" }, StringSplitOptions.None)
+                        .Split([" / ", "\n----\n"], StringSplitOptions.None)
                         .Select(e =>
                             e.Trim(' ')
-                             .Split(new[] { "  ", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                             .Split(["  ", "\n"], StringSplitOptions.RemoveEmptyEntries)
                              .Select(l => l.Trim(' '))
                              .ToArray()
                         )
@@ -173,13 +126,13 @@ namespace SpaceEngineersMap
                     if (hidepart1 && !hidepart2)
                     {
                         sections = [
-                            sections[0].TakeWhile(e => e == "|").Concat(sections[1]).ToArray()
+                            [.. sections[0].TakeWhile(e => e == "|"), .. sections[1]]
                         ];
                     }
                     else if (hidepart2 && !hidepart1)
                     {
                         sections = [
-                            sections[0].Concat(sections[1].Reverse().TakeWhile(e => e == "|").Reverse()).ToArray()
+                            [.. sections[0], .. sections[1].Reverse().TakeWhile(e => e == "|").Reverse()]
                         ];
                     }
                 }
@@ -208,7 +161,7 @@ namespace SpaceEngineersMap
                 if (lines.All(e => e == "" || e.StartsWith("  ") || e.EndsWith("  ")))
                 {
                     attachpos.X -= (attach.AlignPoint.Width - 0.5f) * spacewidth * 4;
-                    lines = lines.Select(e => e.Trim()).ToArray();
+                    lines = [.. lines.Select(e => e.Trim())];
                 }
 
                 int blanklines = 0;
@@ -216,7 +169,7 @@ namespace SpaceEngineersMap
                 if (valign == VerticalAlignment.Top)
                 {
                     blanklines = lines.TakeWhile(e => e == "").Count();
-                    hrules = hrules.Select(e => e - blanklines).ToArray();
+                    hrules = [.. hrules.Select(e => e - blanklines)];
                 }
                 else if (valign == VerticalAlignment.Bottom)
                 {
@@ -225,7 +178,7 @@ namespace SpaceEngineersMap
 
                 attachpos.Y -= fontheight * blanklines * (attach.AlignPoint.Height - 0.5f) * 2;
 
-                lines = lines.SkipWhile(e => e == "").Reverse().SkipWhile(e => e == "").Reverse().ToArray();
+                lines = [.. lines.SkipWhile(e => e == "").Reverse().SkipWhile(e => e == "").Reverse()];
 
                 string text = string.Join("\r\n", lines);
                 var glyphs = TextBuilder.GenerateGlyphs(text, format);
@@ -342,5 +295,8 @@ namespace SpaceEngineersMap
                 }
             }
         }
+
+        [GeneratedRegex("^[|]+ ")]
+        private static partial Regex GetPipeSpacingRE();
     }
 }

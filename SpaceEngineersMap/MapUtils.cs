@@ -18,35 +18,27 @@ using System.Xml.Linq;
 
 namespace SpaceEngineersMap
 {
-    public static class MapUtils
+    public static partial class MapUtils
     {
         private static readonly XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
-        public static string[] Faces { get; } = { "down", "back", "left", "front", "right", "up" };
+        public static string[] Faces { get; } = ["down", "back", "left", "front", "right", "up"];
 
-        public static FontCollection Fonts = new FontCollection().AddSystemFonts();
+        public static readonly FontCollection Fonts = new FontCollection().AddSystemFonts();
 
         public static CubeFace GetFace(string face)
         {
-            switch (face?.ToLowerInvariant())
+            return (face?.ToLowerInvariant()) switch
             {
-                case "up":
-                    return CubeFace.Up;
-                case "down":
-                    return CubeFace.Down;
-                case "left":
-                    return CubeFace.Left;
-                case "right":
-                    return CubeFace.Right;
-                case "front":
-                    return CubeFace.Front;
-                case "back":
-                    return CubeFace.Back;
-                case "mercator":
-                    return CubeFace.Mercator;
-                default:
-                    return CubeFace.None;
-            }
+                "up" => CubeFace.Up,
+                "down" => CubeFace.Down,
+                "left" => CubeFace.Left,
+                "right" => CubeFace.Right,
+                "front" => CubeFace.Front,
+                "back" => CubeFace.Back,
+                "mercator" => CubeFace.Mercator,
+                _ => CubeFace.None,
+            };
         }
 
         public static (Vector3D Position, Quaternion Rotation) GetPlanetPositionAndOrientation(string savedir, string planetname)
@@ -54,40 +46,39 @@ namespace SpaceEngineersMap
             foreach (var savefile in Directory.EnumerateFiles(savedir, "SANDBOX_*.sbs"))
             {
                 var xdoc = XDocument.Load(savefile);
-                var objects = xdoc.Root.Element("SectorObjects").Elements("MyObjectBuilder_EntityBase");
+                var objects = xdoc.Root?.Element("SectorObjects")?.Elements("MyObjectBuilder_EntityBase") ?? [];
+
                 foreach (var obj in objects)
                 {
-                    if (obj.Attribute(xsi + "type")?.Value == "MyObjectBuilder_Planet" && string.Equals(obj.Element("PlanetGenerator")?.Value, planetname, StringComparison.OrdinalIgnoreCase))
+                    if (obj.Attribute(xsi + "type")?.Value == "MyObjectBuilder_Planet"
+                        && string.Equals(obj.Element("PlanetGenerator")?.Value, planetname, StringComparison.OrdinalIgnoreCase)
+                        && obj.Element("PositionAndOrientation") is { } positionAndOrientation
+                        && positionAndOrientation.Element("Position") is { } positionElement
+                        && positionAndOrientation.Element("Orientation") is { } orientationElement
+                        && obj.Element("MaximumHillRadius")?.Value is string radiusValue
+                        && double.TryParse(radiusValue, out var radius)
+                        && positionElement.Attribute("x")?.Value is string xval
+                        && double.TryParse(xval, out var x)
+                        && positionElement.Attribute("y")?.Value is string yval
+                        && double.TryParse(yval, out var y)
+                        && positionElement.Attribute("z")?.Value is string zval
+                        && double.TryParse(zval, out var z)
+                        && orientationElement.Attribute("W")?.Value is string rwval
+                        && double.TryParse(rwval, out var rw)
+                        && orientationElement.Attribute("X")?.Value is string rxval
+                        && double.TryParse(rxval, out var rx)
+                        && orientationElement.Attribute("Y")?.Value is string ryval
+                        && double.TryParse(ryval, out var ry)
+                        && orientationElement.Attribute("Z")?.Value is string rzval
+                        && double.TryParse(rzval, out var rz))
                     {
-                        if (obj.Element("PositionAndOrientation") is { } positionAndOrientation
-                            && positionAndOrientation.Element("Position") is { } positionElement
-                            && positionAndOrientation.Element("Orientation") is { } orientationElement
-                            && obj.Element("MaximumHillRadius")?.Value is string radiusValue
-                            && double.TryParse(radiusValue, out var radius)
-                            && positionElement.Attribute("x")?.Value is string xval
-                            && double.TryParse(xval, out var x)
-                            && positionElement.Attribute("y")?.Value is string yval
-                            && double.TryParse(yval, out var y)
-                            && positionElement.Attribute("z")?.Value is string zval
-                            && double.TryParse(zval, out var z)
-                            && orientationElement.Attribute("W")?.Value is string rwval
-                            && double.TryParse(rwval, out var rw)
-                            && orientationElement.Attribute("X")?.Value is string rxval
-                            && double.TryParse(rxval, out var rx)
-                            && orientationElement.Attribute("Y")?.Value is string ryval
-                            && double.TryParse(ryval, out var ry)
-                            && orientationElement.Attribute("Z")?.Value is string rzval
-                            && double.TryParse(rzval, out var rz))
-                        {
-                            double size = 128;
-                            while (size < radius) size *= 2;
+                        double size = 128;
+                        while (size < radius) size *= 2;
 
-                            var pos = new Vector3D(x + size + 0.5, y + size + 0.5, z + size + 0.5);
-                            
-                            var rotation = new Quaternion(rw, rx, ry, rz);
+                        var pos = new Vector3D(x + size + 0.5, y + size + 0.5, z + size + 0.5);
+                        var rotation = new Quaternion(rw, rx, ry, rz);
 
-                            return (pos, rotation);
-                        }
+                        return (pos, rotation);
                     }
                 }
             }
@@ -97,7 +88,7 @@ namespace SpaceEngineersMap
 
         public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string? endname, double minMercatorLon = -180, double maxMercatorLon = 180, bool northIsYMinus = false, bool transverseMercator = false, double transverseMercatorMeridian = 0)
         {
-            var namere = new Regex(@"^P\d\d\w?\.\d\d\.\d\d\.\d\d");
+            var namere = GetNameRE();
             var xdoc = XDocument.Load(System.IO.Path.Combine(savedir, "Sandbox.sbc"));
 
             var playerEntity =
@@ -169,7 +160,7 @@ namespace SpaceEngineersMap
                         f => gpsentlists
                                 .Select(glist =>
                                     glist.Select(g => g.Project(1024, 1024, planetPos, planetRot, f, rotate45))
-                                         .Where(e => e != null)
+                                         .OfType<ProjectedGpsEntry>()
                                          .ToList()
                                 )
                                 .ToList()
@@ -180,14 +171,52 @@ namespace SpaceEngineersMap
             minMercatorLon *= Math.PI / 180.0;
             transverseMercatorMeridian *= Math.PI / 180.0;
 
-            entsByFace[CubeFace.Mercator] =
-                gpsentlists
-                    .Select(glist =>
-                        glist.Select(g => g.ProjectMercator(1024, planetPos, planetRot, minMercatorLon, maxMercatorLon, latLonMult, latLonMult, northIsYMinus, transverseMercator, transverseMercatorMeridian))
-                             .OfType<ProjectedGpsEntry>()
-                             .ToList()
-                    )
-                    .ToList();
+            if (transverseMercator)
+            {
+                entsByFace[CubeFace.Mercator] =
+                    [.. gpsentlists
+                        .Select(glist =>
+                            glist
+                                .Select(g =>
+                                    g.ProjectTransverseMercator(
+                                        1024,
+                                        planetPos,
+                                        planetRot,
+                                        minMercatorLon,
+                                        maxMercatorLon,
+                                        latLonMult,
+                                        latLonMult,
+                                        northIsYMinus,
+                                        transverseMercatorMeridian
+                                    )
+                                 )
+                                .OfType<ProjectedGpsEntry>()
+                                .ToList()
+                        )
+                    ];
+            }
+            else
+            {
+                entsByFace[CubeFace.Mercator] =
+                    [.. gpsentlists
+                        .Select(glist =>
+                            glist
+                                .Select(g =>
+                                    g.ProjectMercator(
+                                        1024,
+                                        planetPos,
+                                        planetRot,
+                                        minMercatorLon,
+                                        maxMercatorLon,
+                                        latLonMult,
+                                        latLonMult,
+                                        northIsYMinus                                    )
+                                 )
+                                .OfType<ProjectedGpsEntry>()
+                                .ToList()
+                        )
+                    ];
+            }
 
             return entsByFace;
         }
@@ -285,23 +314,16 @@ namespace SpaceEngineersMap
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static Vector3D ProjectFace(CubeFace face, double x, double y, int mult, int maxval)
         {
-            switch (face)
+            return face switch
             {
-                case CubeFace.Up:
-                    return new Vector3D(-x, mult, -y);
-                case CubeFace.Down:
-                    return new Vector3D(x, -mult, -y);
-                case CubeFace.Left:
-                    return new Vector3D(mult, -y, -x);
-                case CubeFace.Right:
-                    return new Vector3D(-mult, -y, x);
-                case CubeFace.Front:
-                    return new Vector3D(-x, -y, -mult);
-                case CubeFace.Back:
-                    return new Vector3D(x, -y, mult);
-                default:
-                    throw new InvalidOperationException();
-            }
+                CubeFace.Up => new Vector3D(-x, mult, -y),
+                CubeFace.Down => new Vector3D(x, -mult, -y),
+                CubeFace.Left => new Vector3D(mult, -y, -x),
+                CubeFace.Right => new Vector3D(-mult, -y, x),
+                CubeFace.Front => new Vector3D(-x, -y, -mult),
+                CubeFace.Back => new Vector3D(x, -y, mult),
+                _ => throw new InvalidOperationException(),
+            };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -464,7 +486,15 @@ namespace SpaceEngineersMap
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3D ProjectMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus, bool transverseMercator, double transverseMercatorMeridian)
+        public static Vector3D ProjectMercator(
+                int mult,
+                Vector3D coords,
+                double minMercatorLon,
+                double maxMercatorLon,
+                double latMult,
+                double lonMult,
+                bool northIsYMinus
+            )
         {
             if (coords.X == 0 && coords.Z == 0)
             {
@@ -494,7 +524,16 @@ namespace SpaceEngineersMap
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3D ProjectTransverseMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus, double transverseMercatorMeridian)
+        public static Vector3D ProjectTransverseMercator(
+                int mult,
+                Vector3D coords,
+                double minMercatorLon,
+                double maxMercatorLon,
+                double latMult,
+                double lonMult,
+                bool northIsYMinus,
+                double transverseMercatorMeridian
+            )
         {
             var x = coords.X * Math.Cos(transverseMercatorMeridian) + coords.Z * Math.Sin(transverseMercatorMeridian);
             var z = -coords.X * Math.Sin(transverseMercatorMeridian) + coords.Z * Math.Cos(transverseMercatorMeridian);
@@ -534,6 +573,8 @@ namespace SpaceEngineersMap
 
         public static Dictionary<CubeFace, Image<Argb32>> GetContourMaps(SEMapOptions options)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(options.PlanetDirectory, nameof(options.PlanetDirectory));
+
             var planetdir = options.PlanetDirectory;
             var maps = Faces.ToDictionary(f => f, f => Map.Load(planetdir, f));
 
@@ -646,14 +687,14 @@ namespace SpaceEngineersMap
             }
         }
 
-        public static void SaveMaps(Dictionary<CubeFace, Image<Argb32>> contourmaps, Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, SEMapOptions opts, string[] segments, string outdir, string endname)
+        public static void SaveMaps(Dictionary<CubeFace, Image<Argb32>> contourmaps, Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> gpsentlists, SEMapOptions opts, string[] segments, string outdir, string? endname)
         {
-            Dictionary<CubeFace, Image<Argb32>> maps = new Dictionary<CubeFace, Image<Argb32>>();
-            Dictionary<CubeFace, Image<Argb32>> basemaps = new Dictionary<CubeFace, Image<Argb32>>();
-            Dictionary<CubeFace, Image<Argb32>> ovlmaps = new Dictionary<CubeFace, Image<Argb32>>();
-            Image<Argb32> tilebmp = null;
-            Image<Argb32> basetilebmp = null;
-            Image<Argb32> ovltilebmp = null;
+            Dictionary<CubeFace, Image<Argb32>> maps = [];
+            Dictionary<CubeFace, Image<Argb32>> basemaps = [];
+            Dictionary<CubeFace, Image<Argb32>> ovlmaps = [];
+            Image<Argb32>? tilebmp = null;
+            Image<Argb32>? basetilebmp = null;
+            Image<Argb32>? ovltilebmp = null;
 
             try
             {
@@ -675,7 +716,6 @@ namespace SpaceEngineersMap
                     var gridDrawOps = new List<(DrawingOps.IDrawingOp Op, bool IncludeInBounds, object? Info)>();
 
                     var griddrawer = new MapDrawer(bmp, gridDrawOps, Fonts, [], opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude, opts.TransverseMercator, opts.TransverseMercatorMeridian);
-                    griddrawer.Open(Fonts);
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} map drawer opened for {System.IO.Path.GetFileName(outdir)}");
                     griddrawer.AddEdges();
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} edges drawn for {System.IO.Path.GetFileName(outdir)}");
@@ -696,7 +736,6 @@ namespace SpaceEngineersMap
                         {
                             var drawer = new MapDrawer(ovlbmp, ovlDrawOps, Fonts, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude, opts.TransverseMercator, opts.TransverseMercatorMeridian);
                             drawers.Add(drawer);
-                            drawer.Open(Fonts);
                             drawer.AddLatLonLines();
                         }
                     }
@@ -860,5 +899,8 @@ namespace SpaceEngineersMap
                 }
             }
         }
+
+        [GeneratedRegex(@"^P\d\d\w?\.\d\d\.\d\d\.\d\d")]
+        private static partial Regex GetNameRE();
     }
 }

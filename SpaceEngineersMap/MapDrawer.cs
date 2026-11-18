@@ -54,14 +54,8 @@ namespace SpaceEngineersMap
         private static readonly Brush TextBrush = new SolidBrush(Color.Black);
         private static readonly Brush Text2Brush = new SolidBrush(Color.DarkRed);
         private static readonly Pen TextOutlinePen = new SolidPen(new PenOptions(Color.White, 4.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private Font? TextFont;
-        private Font? Text2Font;
-
-        public void Open(FontCollection fonts)
-        {
-            TextFont = new Font(fonts.Get("Microsoft Sans Serif"), 12.0f);
-            Text2Font = new Font(fonts.Get("Microsoft Sans Serif"), 12.0f);
-        }
+        private readonly Font TextFont = new(fonts.Get("Microsoft Sans Serif"), 12.0f);
+        private readonly Font Text2Font = new(fonts.Get("Microsoft Sans Serif"), 12.0f);
 
         private void AddMercatorFaceEdges()
         {
@@ -259,40 +253,22 @@ namespace SpaceEngineersMap
             const int step = 5;
             const int majstep = 15;
             const double sampleStep = 1;
+            const double minSampleStep = 1.0 / 16;
             var minMercatorLon = MinMercatorLongitude * Math.PI / 180.0;
             var maxMercatorLon = MaxMercatorLongitude * Math.PI / 180.0;
             var latLonMult = 1024 * 360.0 / Math.PI / 90;
-            var halfWidth = Width / 2.0;
-            var halfHeight = Height / 2.0;
-            var drawMinX = -Width;
-            var drawMaxX = Width * 2;
-            var drawMinY = -Height;
-            var drawMaxY = Height * 2;
-
-            static double NormalizeDegrees(double degrees)
-            {
-                while (degrees < -180)
-                {
-                    degrees += 360;
-                }
-
-                while (degrees >= 180)
-                {
-                    degrees -= 360;
-                }
-
-                return degrees;
-            }
+            var limit = Math.Max(Width, Height) * 16;
+            var maxDelta = Math.Min(Width, Height) / 16;
 
             bool TryProjectTransverseMercator(double latDeg, double lonDeg, out PointF point)
             {
                 var lat = latDeg * Math.PI / 180.0;
                 var lon = lonDeg * Math.PI / 180.0;
-                var cosLat = Math.Cos(lat);
+
                 var coords = new Vector3D(
-                    -Math.Sin(lon) * cosLat,
+                    -Math.Sin(lon) * Math.Cos(lat),
                     Math.Sin(lat),
-                    Math.Cos(lon) * cosLat
+                    Math.Cos(lon) * Math.Cos(lat)
                 );
 
                 var projected = MapUtils.ProjectTransverseMercator(
@@ -306,17 +282,21 @@ namespace SpaceEngineersMap
                     TransverseMercatorMeridian * Math.PI / 180.0
                 );
 
-                if (double.IsNaN(projected.X) || double.IsNaN(projected.Y) || double.IsInfinity(projected.X) || double.IsInfinity(projected.Y))
+                if (double.IsNaN(projected.X) || double.IsNaN(projected.Y))
                 {
                     point = default;
                     return false;
                 }
 
-                point = new PointF((float)(projected.X + halfWidth), (float)(projected.Y + halfHeight));
+                point = new PointF(
+                    Math.Clamp((float)(projected.X + Width / 2.0), -limit, limit),
+                    Math.Clamp((float)(projected.Y + Height / 2.0), -limit, limit)
+                );
+
                 return true;
             }
 
-            void DrawBezierSegment(Pen pen, List<PointF> points, object? info)
+            void DrawBezierSegment(Pen pen, List<(PointF Point, string Type, double Lat, double Lon)> points)
             {
                 if (points.Count < 2)
                 {
@@ -326,9 +306,16 @@ namespace SpaceEngineersMap
                 if (points.Count == 2)
                 {
                     DrawingOps.Add((
-                        new DrawingOps.Line(pen, points[0].X, points[0].Y, points[1].X, points[1].Y),
+                        new DrawingOps.Line(pen, points[0].Point.X, points[0].Point.Y, points[1].Point.X, points[1].Point.Y),
                         false,
-                        info
+                        new
+                        {
+                            points[0].Type,
+                            Lat1 = points[0].Lat,
+                            Lon1 = points[0].Lon,
+                            Lat2 = points[1].Lat,
+                            Lon2 = points[1].Lon
+                        }
                     ));
 
                     return;
@@ -341,142 +328,111 @@ namespace SpaceEngineersMap
                     var p2 = points[i + 1];
                     var p3 = i + 2 < points.Count ? points[i + 2] : points[i + 1];
 
-                    var c1 = new PointF(
-                        p1.X + (p2.X - p0.X) / 6f,
-                        p1.Y + (p2.Y - p0.Y) / 6f
-                    );
-                    var c2 = new PointF(
-                        p2.X - (p3.X - p1.X) / 6f,
-                        p2.Y - (p3.Y - p1.Y) / 6f
-                    );
+                    if (float.IsNaN(p1.Point.X) || float.IsNaN(p1.Point.Y) || float.IsNaN(p2.Point.X) || float.IsNaN(p2.Point.Y))
+                    {
+                        continue;
+                    }
+
+                    var c1 = float.IsNaN(p0.Point.X) || float.IsNaN(p0.Point.Y)
+                           ? p1.Point
+                           : new PointF(
+                                 Math.Clamp(p1.Point.X + (p2.Point.X - p0.Point.X) / 6f, -limit, limit),
+                                 Math.Clamp(p1.Point.Y + (p2.Point.Y - p0.Point.Y) / 6f, -limit, limit)
+                             );
+
+                    var c2 = float.IsNaN(p3.Point.X) || float.IsNaN(p3.Point.Y)
+                           ? p2.Point
+                           : new PointF(
+                                 Math.Clamp(p2.Point.X - (p3.Point.X - p1.Point.X) / 6f, -limit, limit),
+                                 Math.Clamp(p2.Point.Y - (p3.Point.Y - p1.Point.Y) / 6f, -limit, limit)
+                             );
 
                     DrawingOps.Add((
-                        new DrawingOps.CubicBezier(pen, p0, c1, c2, p2),
+                        new DrawingOps.CubicBezier(pen, p1.Point, c1, c2, p2.Point),
                         false,
-                        info
+                        new
+                        {
+                            p1.Type,
+                            Lat1 = p1.Lat,
+                            Lon1 = p1.Lon,
+                            Lat2 = p2.Lat,
+                            Lon2 = p2.Lon
+                        }
                     ));
                 }
             }
 
-            void DrawLatitudeLine(double latDeg, Pen pen)
+            void TryAddSegment(List<(PointF Point, string Type, double Lat, double Lon)> points, string type, double lat, double lon)
             {
-                var segment = new List<PointF>();
-                var wrapDeltaYThreshold = (drawMaxY - drawMinY) / 2f;
-                double? startlon = null;
-                double? prevlon = null;
+                if (TryProjectTransverseMercator(lat, lon, out var pt))
+                {
+                    if (points is [.., { Point: { } prevPoint, Lat: double prevLat, Lon: double prevLon }]
+                        && (Math.Abs(pt.X - prevPoint.X) > maxDelta || Math.Abs(pt.Y - prevPoint.Y) > maxDelta))
+                    {
+                        if (Math.Abs(lat - prevLat) <= minSampleStep || Math.Abs(lon - prevLon) <= minSampleStep)
+                        {
+                            points.Add((new PointF(float.NaN, float.NaN), type, (prevLat + lat) / 2, (prevLon + lon) / 2));
+                        }
+                        else
+                        {
+                            TryAddSegment(points, type, (prevLat + lat) / 2, (prevLon + lon) / 2);
+                        }
+                    }
+
+                    points.Add((pt, type, lat, lon));
+                }
+                else
+                {
+                    if (points is [.., { Lat: double prevLat, Lon: double prevLon }]
+                        && (Math.Abs(lat - prevLat) > minSampleStep || Math.Abs(lon - prevLon) > minSampleStep))
+                    {
+                        TryAddSegment(points, type, (prevLat + lat) / 2, (prevLon + lon) / 2);
+                    }
+
+                    points.Add((new PointF(float.NaN, float.NaN), type, lat, lon));
+                    return;
+                }
+            }
+
+            for (var lat = -90.0 + step; lat <= 90.0 - step; lat += step)
+            {
+                var pen = lat % majstep == 0 ? GridPen : GridMinorPen;
+                var segment = new List<(PointF Point, string Type, double Lat, double Lon)>();
 
                 for (var lon = -180.0; lon <= 180.0; lon += sampleStep)
                 {
-                    if (!TryProjectTransverseMercator(latDeg, lon, out var pt))
-                    {
-                        if (segment.Count > 1)
-                        {
-                            DrawBezierSegment(
-                                pen,
-                                segment,
-                                new
-                                {
-                                    Type = "trans_merc_lat",
-                                    Latitude = latDeg,
-                                    StartLongitude = startlon,
-                                    EndLongitude = prevlon
-                                }
-                            );
-                        }
-
-                        segment.Clear();
-                        startlon = null;
-                        continue;
-                    }
-
-                    startlon ??= lon;
-                    prevlon = lon;
-
-                    segment.Add(pt);
+                    TryAddSegment(segment, "trans_merc_lat", lat, lon);
                 }
 
                 if (segment.Count > 1)
                 {
                     DrawBezierSegment(
                         pen,
-                        segment,
-                        new
-                        {
-                            Type = "trans_merc_lat",
-                            Latitude = latDeg,
-                            StartLongitude = startlon,
-                            EndLongitude = prevlon
-                        }
+                        segment
                     );
                 }
             }
 
-            void DrawLongitudeLine(double lonDeg, Pen pen)
+            for (var lon = -180.0; lon < 180.0; lon += step)
             {
-                var segment = new List<PointF>();
-                var wrapDeltaYThreshold = (drawMaxY - drawMinY) / 2f;
+                var pen = lon % majstep == 0 ? GridPen : GridMinorPen;
+                var segment = new List<(PointF Point, string Type, double Lat, double Lon)>();
 
-                var minLat = Math.Round(lonDeg % 90) == 0 ? -90.0 : -89.0;
-                var maxLat = Math.Round(lonDeg % 90) == 0 ? 90.0 : 89.0;
-                double? startlat = null;
-                double? prevlat = null;
+                var minLat = Math.Round(lon % 90) == 0 ? -90.0 : -89.0;
+                var maxLat = Math.Round(lon % 90) == 0 ? 90.0 : 89.0;
 
                 for (var lat = minLat; lat <= maxLat; lat += sampleStep)
                 {
-                    if (!TryProjectTransverseMercator(lat, lonDeg, out var pt))
-                    {
-                        if (segment.Count > 1)
-                        {
-                            DrawBezierSegment(
-                                pen,
-                                segment,
-                                new
-                                {
-                                    Type = "trans_merc_lat",
-                                    Latitude = lonDeg,
-                                    StartLatitude = startlat,
-                                    EndLatitude = prevlat
-                                }
-                            );
-                        }
-
-                        segment.Clear();
-                        startlat = null;
-                        continue;
-                    }
-
-                    startlat ??= lat;
-                    prevlat = lat;
-
-                    segment.Add(pt);
+                    TryAddSegment(segment, "trans_merc_lon", lat, lon);
                 }
 
                 if (segment.Count > 1)
                 {
                     DrawBezierSegment(
                         pen,
-                        segment,
-                        new
-                        {
-                            Type = "trans_merc_lat",
-                            Latitude = lonDeg,
-                            StartLatitude = startlat,
-                            EndLatitude = prevlat
-                        }
+                        segment
                     );
                 }
-            }
-
-            for (var lat = -90 + step; lat <= 90 - step; lat += step)
-            {
-                var pen = lat % majstep == 0 ? GridPen : GridMinorPen;
-                DrawLatitudeLine(lat, pen);
-            }
-
-            for (var lon = -180; lon < 180; lon += step)
-            {
-                var pen = lon % majstep == 0 ? GridPen : GridMinorPen;
-                DrawLongitudeLine(lon, pen);
             }
         }
 

@@ -4,23 +4,21 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 
 namespace SpaceEngineersMap
 {
     public class SEMapOptions
     {
-        public string SaveDirectory { get; set; }
-        public string ContentDirectory { get; set; }
-        public string OutputDirectory { get; set; }
-        public string WorkshopDirectory { get; set; }
+        public string? SaveDirectory { get; set; }
+        public string? ContentDirectory { get; set; }
+        public string? OutputDirectory { get; set; }
+        public string? WorkshopDirectory { get; set; }
         public string PlanetName { get; set; } = "EarthLike";
         public long PlanetEntityId { get; set; }
-        public string PlanetDataDirectory { get; set; }
-        public string PlanetDirectory { get; set; }
-        public string[] ChapterParts { get; set; }
+        public string? PlanetDataDirectory { get; set; }
+        public string? PlanetDirectory { get; set; }
+        public string[] ChapterParts { get; set; } = [];
         public bool ShowHelp { get; set; }
         public bool CropTileMap { get; set; }
         public bool CropTexture { get; set; }
@@ -42,8 +40,8 @@ namespace SpaceEngineersMap
         public bool TransverseMercator { get; set; } = false;
         public double TransverseMercatorMeridian { get; set; } = 0;
         public bool NorthIsYMinus { get; set; } = false;
-        public CubeFace[][] TileFaces { get; set; }
-        public Dictionary<CubeFace, RotateFlipType> FaceRotations { get; set; }
+        public CubeFace[][] TileFaces { get; set; } = [];
+        public Dictionary<CubeFace, RotateFlipType> FaceRotations { get; set; } = [];
         public Vector3D PlanetPosition { get; set; } = new Vector3D(0, 0, 0);
         public Quaternion PlanetRotation { get; set; } = new Quaternion(1, 0, 0, 0);
 
@@ -51,43 +49,57 @@ namespace SpaceEngineersMap
 
         private void FillPlanetDetails()
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(SaveDirectory, nameof(SaveDirectory));
+            ArgumentException.ThrowIfNullOrWhiteSpace(ContentDirectory, nameof(ContentDirectory));
+            ArgumentException.ThrowIfNullOrWhiteSpace(WorkshopDirectory, nameof(WorkshopDirectory));
+            ArgumentException.ThrowIfNullOrWhiteSpace(PlanetName, nameof(PlanetName));
+
             PlanetDataDirectory = FindPlanetDir(SaveDirectory, ContentDirectory, WorkshopDirectory, PlanetName);
             PlanetDirectory = Path.Combine(PlanetDataDirectory, "PlanetDataFiles", PlanetName);
 
             foreach (var savefile in Directory.EnumerateFiles(SaveDirectory, "SANDBOX_*.sbs"))
             {
                 var xdoc = XDocument.Load(savefile);
-                var objects = xdoc.Root.Element("SectorObjects").Elements("MyObjectBuilder_EntityBase");
-                foreach (var obj in objects)
+                var objects = xdoc.Root?.Element("SectorObjects")?.Elements("MyObjectBuilder_EntityBase");
+
+                foreach (var obj in objects ?? [])
                 {
-                    if (obj.Attribute(xsi + "type")?.Value == "MyObjectBuilder_Planet" && string.Equals(obj.Element("PlanetGenerator")?.Value, PlanetName, StringComparison.OrdinalIgnoreCase))
+                    if (obj.Attribute(xsi + "type")?.Value == "MyObjectBuilder_Planet"
+                        && string.Equals(obj.Element("PlanetGenerator")?.Value, PlanetName, StringComparison.OrdinalIgnoreCase)
+                        && obj.Element("EntityId")?.Value is string entityidval
+                        && long.TryParse(entityidval, out var entityid)
+                        && obj.Element("PositionAndOrientation") is { } positionAndOrientation
+                        && positionAndOrientation.Element("Position") is { } positionElement
+                        && positionAndOrientation.Element("Orientation") is { } orientationElement
+                        && obj.Element("MaximumHillRadius")?.Value is string maxRadiusValue
+                        && double.TryParse(maxRadiusValue, out var maxRadius)
+                        && obj.Element("MinimumSurfaceRadius")?.Value is string minRadiusValue
+                        && double.TryParse(minRadiusValue, out var minRadius)
+                        && positionElement.Attribute("x")?.Value is string xval
+                        && double.TryParse(xval, out var x)
+                        && positionElement.Attribute("y")?.Value is string yval
+                        && double.TryParse(yval, out var y)
+                        && positionElement.Attribute("z")?.Value is string zval
+                        && double.TryParse(zval, out var z)
+                        && orientationElement.Attribute("W")?.Value is string rwval
+                        && double.TryParse(rwval, out var rw)
+                        && orientationElement.Attribute("X")?.Value is string rxval
+                        && double.TryParse(rxval, out var rx)
+                        && orientationElement.Attribute("Y")?.Value is string ryval
+                        && double.TryParse(ryval, out var ry)
+                        && orientationElement.Attribute("Z")?.Value is string rzval
+                        && double.TryParse(rzval, out var rz))
                     {
-                        var positionAndOrientation = obj.Element("PositionAndOrientation");
-                        var positionElement = positionAndOrientation.Element("Position");
-                        var orientationElement = positionAndOrientation.Element("Orientation");
-                        var entityid = long.Parse(obj.Element("EntityId").Value);
-                        var maxradius = double.Parse(obj.Element("MaximumHillRadius").Value);
-                        var minradius = double.Parse(obj.Element("MinimumSurfaceRadius").Value);
-
                         double size = 128;
-                        while (size < maxradius) size *= 2;
+                        while (size < maxRadius) size *= 2;
 
-                        var pos = new Vector3D(
-                            double.Parse(positionElement.Attribute("x").Value) + size + 0.5,
-                            double.Parse(positionElement.Attribute("y").Value) + size + 0.5,
-                            double.Parse(positionElement.Attribute("z").Value) + size + 0.5
-                        );
-                        var rotation = new Quaternion(
-                            double.Parse(orientationElement.Element("W").Value),
-                            double.Parse(orientationElement.Element("X").Value),
-                            double.Parse(orientationElement.Element("Y").Value),
-                            double.Parse(orientationElement.Element("Z").Value)
-                        );
+                        var pos = new Vector3D(x + size + 0.5, y + size + 0.5, z + size + 0.5);
+                        var rotation = new Quaternion(rw, rx, ry, rz);
 
                         PlanetPosition = pos;
                         PlanetRotation = rotation;
-                        PlanetMaxRadius = maxradius;
-                        PlanetMinRadius = minradius;
+                        PlanetMaxRadius = maxRadius;
+                        PlanetMinRadius = minRadius;
                         PlanetEntityId = entityid;
                         return;
                     }
@@ -104,22 +116,20 @@ namespace SpaceEngineersMap
 
                 if (File.Exists(saveconfig))
                 {
-                    using (var file = File.Open(saveconfig, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    {
-                        var xml = XDocument.Load(file);
-                        var root = xml.Root;
-                        var mods = root.Element("Mods").Elements("ModItem");
+                    using var file = File.Open(saveconfig, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    var xml = XDocument.Load(file);
+                    var root = xml.Root;
+                    var mods = root?.Element("Mods")?.Elements("ModItem") ?? [];
 
-                        foreach (var mod in mods)
+                    foreach (var mod in mods)
+                    {
+                        if (mod.Element("PublishedFileId")?.Value is string modid)
                         {
-                            if (mod.Element("PublishedFileId")?.Value is string modid)
-                            {
-                                modids.Add(modid);
-                            }
-                            else if (mod.Element("Name")?.Value is string modname && long.TryParse(modname.Replace(".sbm", ""), out _))
-                            {
-                                modids.Add(modname.Replace(".sbm", ""));
-                            }
+                            modids.Add(modid);
+                        }
+                        else if (mod.Element("Name")?.Value is string modname && long.TryParse(modname.Replace(".sbm", ""), out _))
+                        {
+                            modids.Add(modname.Replace(".sbm", ""));
                         }
                     }
                 }
@@ -135,6 +145,7 @@ namespace SpaceEngineersMap
             foreach (var modid in modids)
             {
                 var planetdir = Path.Combine(workshopdir, modid, "Data");
+
                 if (MapUtils.Faces.All(f => File.Exists(Path.Combine(planetdir, "PlanetDataFiles", planetname, $"{f}.png"))))
                 {
                     return planetdir;
@@ -146,22 +157,23 @@ namespace SpaceEngineersMap
 
         private void FillWaterModSeaLevel()
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(SaveDirectory, nameof(SaveDirectory));
+
             var xdoc = XDocument.Load(Path.Combine(SaveDirectory, "Sandbox.sbc"));
-            var scriptmgrdata = xdoc.Root.Element("ScriptManagerData");
-            var scriptdata = xdoc.Root.Element("ScriptManagerData")?.Element("variables")?.Element("dictionary")?.Elements("item").ToArray() ?? Array.Empty<XElement>();
+            var scriptdata = xdoc.Root?.Element("ScriptManagerData")?.Element("variables")?.Element("dictionary")?.Elements("item").ToArray() ?? [];
             foreach (var item in scriptdata)
             {
-                var key = item.Element("Key").Value;
-                var value = item.Element("Value").Value;
+                var key = item.Element("Key")?.Value;
+                var value = item.Element("Value")?.Value;
 
-                if (key == "JWater2")
+                if (key == "JWater2" && value != null)
                 {
                     var jwater2doc = XDocument.Parse(value);
-                    var waters = jwater2doc.Root.Elements("Waters");
+                    var waters = jwater2doc.Root?.Elements("Waters") ?? [];
 
                     foreach (var water in waters)
                     {
-                        if (!long.TryParse(water.Element("EntityId").Value, out var entityId)) continue;
+                        if (!long.TryParse(water.Element("EntityId")?.Value, out var entityId)) continue;
                         if (entityId != PlanetEntityId) continue;
                         if (!double.TryParse(water.Element("Settings")?.Element("Radius")?.Value, out var radius)) continue;
                         PlanetSeaLevel = radius * PlanetMinRadius;
@@ -182,15 +194,15 @@ namespace SpaceEngineersMap
                 CropTileMap = false,
                 CropTexture = false,
                 Rotate45 = false,
-                ChapterParts = null,
+                ChapterParts = [],
                 TransverseMercator = false,
                 TransverseMercatorMeridian = 0,
-                TileFaces = new[]
-                {
-                    new[] { CubeFace.None, CubeFace.Down, CubeFace.None, CubeFace.None },
-                    new[] { CubeFace.Back, CubeFace.Right, CubeFace.Front, CubeFace.Left },
-                    new[] { CubeFace.None, CubeFace.Up, CubeFace.None, CubeFace.None }
-                },
+                TileFaces =
+                [
+                    [CubeFace.None, CubeFace.Down, CubeFace.None, CubeFace.None],
+                    [CubeFace.Back, CubeFace.Right, CubeFace.Front, CubeFace.Left],
+                    [CubeFace.None, CubeFace.Up, CubeFace.None, CubeFace.None]
+                ],
                 FaceRotations = new Dictionary<CubeFace, RotateFlipType>
                 {
                     [CubeFace.Up] = RotateFlipType.Rotate270FlipNone,
@@ -239,7 +251,7 @@ namespace SpaceEngineersMap
                 }
                 else if (args[i] == "--tile" && i < args.Length - 1)
                 {
-                    opts.TileFaces = args[i + 1].Split(',').Select(p => p.Split(':').Select(f => MapUtils.GetFace(f)).ToArray()).ToArray();
+                    opts.TileFaces = [.. args[i + 1].Split(',').Select(p => p.Split(':').Select(f => MapUtils.GetFace(f)).ToArray())];
                     i++;
                 }
                 else if (args[i] == "--rotate" && i < args.Length - 1)
@@ -382,7 +394,7 @@ namespace SpaceEngineersMap
                 }
             }
 
-            opts.ChapterParts = chapterparts.ToArray();
+            opts.ChapterParts = [.. chapterparts];
 
             opts.FillPlanetDetails();
             opts.FillWaterModSeaLevel();
