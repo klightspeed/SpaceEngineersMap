@@ -39,6 +39,8 @@ namespace SpaceEngineersMap
         public double PlanetMaxRadius { get; set; } = 67200;
         public double MinMercatorLongitude { get; set; } = -180;
         public double MaxMercatorLongitude { get; set; } = 180;
+        public bool TransverseMercator { get; set; } = false;
+        public double TransverseMercatorMeridian { get; set; } = 0;
         public bool NorthIsYMinus { get; set; } = false;
         public CubeFace[][] TileFaces { get; set; }
         public Dictionary<CubeFace, RotateFlipType> FaceRotations { get; set; }
@@ -181,6 +183,8 @@ namespace SpaceEngineersMap
                 CropTexture = false,
                 Rotate45 = false,
                 ChapterParts = null,
+                TransverseMercator = false,
+                TransverseMercatorMeridian = 0,
                 TileFaces = new[]
                 {
                     new[] { CubeFace.None, CubeFace.Down, CubeFace.None, CubeFace.None },
@@ -281,6 +285,10 @@ namespace SpaceEngineersMap
                 {
                     opts.Rotate45 = true;
                 }
+                else if (args[i] == "--transverse")
+                {
+                    opts.TransverseMercator = true;
+                }
                 else if (args[i] == "--texturesize" && i < args.Length - 1)
                 {
                     opts.EpisodeTextureSize = Int32.Parse(args[i + 1]);
@@ -341,6 +349,11 @@ namespace SpaceEngineersMap
                 else if (args[i] == "--maxlon" && i < args.Length - 1)
                 {
                     opts.MaxMercatorLongitude = double.Parse(args[i + 1]);
+                    i++;
+                }
+                else if (args[i] == "--meridian" && i < args.Length - 1)
+                {
+                    opts.TransverseMercatorMeridian = double.Parse(args[i + 1]);
                     i++;
                 }
                 else if (args[i] == "--north" && i < args.Length - 1)

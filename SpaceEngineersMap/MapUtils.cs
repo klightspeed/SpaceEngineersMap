@@ -59,25 +59,35 @@ namespace SpaceEngineersMap
                 {
                     if (obj.Attribute(xsi + "type")?.Value == "MyObjectBuilder_Planet" && string.Equals(obj.Element("PlanetGenerator")?.Value, planetname, StringComparison.OrdinalIgnoreCase))
                     {
-                        var positionAndOrientation = obj.Element("PositionAndOrientation");
-                        var positionElement = positionAndOrientation.Element("Position");
-                        var orientationElement = positionAndOrientation.Element("Orientation");
-                        var radius = double.Parse(obj.Element("MaximumHillRadius").Value);
-                        double size = 128;
-                        while (size < radius) size *= 2;
+                        if (obj.Element("PositionAndOrientation") is { } positionAndOrientation
+                            && positionAndOrientation.Element("Position") is { } positionElement
+                            && positionAndOrientation.Element("Orientation") is { } orientationElement
+                            && obj.Element("MaximumHillRadius")?.Value is string radiusValue
+                            && double.TryParse(radiusValue, out var radius)
+                            && positionElement.Attribute("x")?.Value is string xval
+                            && double.TryParse(xval, out var x)
+                            && positionElement.Attribute("y")?.Value is string yval
+                            && double.TryParse(yval, out var y)
+                            && positionElement.Attribute("z")?.Value is string zval
+                            && double.TryParse(zval, out var z)
+                            && orientationElement.Attribute("W")?.Value is string rwval
+                            && double.TryParse(rwval, out var rw)
+                            && orientationElement.Attribute("X")?.Value is string rxval
+                            && double.TryParse(rxval, out var rx)
+                            && orientationElement.Attribute("Y")?.Value is string ryval
+                            && double.TryParse(ryval, out var ry)
+                            && orientationElement.Attribute("Z")?.Value is string rzval
+                            && double.TryParse(rzval, out var rz))
+                        {
+                            double size = 128;
+                            while (size < radius) size *= 2;
 
-                        var pos = new Vector3D(
-                            double.Parse(positionElement.Attribute("x").Value) + size + 0.5,
-                            double.Parse(positionElement.Attribute("y").Value) + size + 0.5,
-                            double.Parse(positionElement.Attribute("z").Value) + size + 0.5
-                        );
-                        var rotation = new Quaternion(
-                            double.Parse(orientationElement.Element("W").Value),
-                            double.Parse(orientationElement.Element("X").Value),
-                            double.Parse(orientationElement.Element("Y").Value),
-                            double.Parse(orientationElement.Element("Z").Value)
-                        );
-                        return (pos, rotation);
+                            var pos = new Vector3D(x + size + 0.5, y + size + 0.5, z + size + 0.5);
+                            
+                            var rotation = new Quaternion(rw, rx, ry, rz);
+
+                            return (pos, rotation);
+                        }
                     }
                 }
             }
@@ -85,47 +95,71 @@ namespace SpaceEngineersMap
             return (new Vector3D(0, 0, 0), new Quaternion(1, 0, 0, 0));
         }
 
-        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string endname, double minMercatorLon = -180, double maxMercatorLon = 180, bool northIsYMinus = false)
+        public static Dictionary<CubeFace, List<List<ProjectedGpsEntry>>> GetGPSEntries(string savedir, string planetname, bool rotate45, Vector3D planetPos, Quaternion planetRot, out string? endname, double minMercatorLon = -180, double maxMercatorLon = 180, bool northIsYMinus = false, bool transverseMercator = false, double transverseMercatorMeridian = 0)
         {
             var namere = new Regex(@"^P\d\d\w?\.\d\d\.\d\d\.\d\d");
             var xdoc = XDocument.Load(System.IO.Path.Combine(savedir, "Sandbox.sbc"));
 
             var playerEntity =
                 xdoc.Root
-                    .Element("ControlledObject")
+                   ?.Element("ControlledObject")
                    ?.Value;
 
             var idents =
                 xdoc.Root
-                    .Element("Identities")
-                    .Elements("MyObjectBuilder_Identity")
+                   ?.Element("Identities")
+                   ?.Elements("MyObjectBuilder_Identity")
+                    .GroupBy(e => e.Element("IdentityId")?.Value)
+                    .Where(g => g.Key != null)
+                    .Select(g => (
+                        Key: g.Key!,
+                        Name: g.First().Element("DisplayName")?.Value,
+                        EntityId: g.First().Element("CharacterEntityId")?.Value
+                     ))
+                    .Where(e => e.Name != null && e.EntityId != null)
                     .ToDictionary(
-                        e => e.Element("IdentityId").Value,
+                        e => e.Key,
                         e => (
-                            Name: e.Element("DisplayName").Value,
-                            EntityId: e.Element("CharacterEntityId").Value
+                            Name: e.Name! ,
+                            EntityId: e.EntityId!
                         )
-                    );
+                     )
+                  ?? [];
 
             var items =
                 xdoc.Root
-                    .Element("Gps")
-                    .Element("dictionary")
-                    .Elements("item")
-                    .ToList();
+                   ?.Element("Gps")
+                   ?.Element("dictionary")
+                   ?.Elements("item")
+                   ?.ToList()
+                  ?? [];
 
             var entlists =
                 items
                     .Select(i => (
-                        IdentityId: i.Element("Key").Value,
-                        Identity: idents.TryGetValue(i.Element("Key").Value, out var ident) ? ident : default,
-                        Entries: i.Element("Value").Element("Entries").Elements("Entry").ToList()
+                        IdentityId: i.Element("Key")?.Value,
+                        Identity: i.Element("Key")?.Value is string key && idents.TryGetValue(key, out var ident) ? ident : default,
+                        Entries: i.Element("Value")?.Element("Entries")?.Elements("Entry")?.ToList() ?? []
                     ))
                     .Select(i => i.Entries.Select(e => GpsEntry.FromXML(e, i.Identity.Name, i.Identity.EntityId != "0")))
                     .ToList();
-            var gpsentlists = entlists.Select(ent => ent.Where(e => namere.IsMatch(e.Name)).OrderBy(e => e.Name).ToList()).ToList();
+            
+            var gpsentlists =
+                entlists
+                    .Select(ent =>
+                        ent.OfType<GpsEntry>()
+                           .Where(e => e.Name != null && namere.IsMatch(e.Name))
+                           .OrderBy(e => e.Name)
+                           .ToList()
+                     )
+                    .ToList();
 
-            endname = gpsentlists.Where(e => e.Count >= 1 && e.Any(g => g.IsPlayer == true)).Select(e => e.Last().Name).OrderByDescending(e => e).FirstOrDefault();
+            endname =
+                gpsentlists
+                    .Where(e => e.Count >= 1 && e.Any(g => g.IsPlayer == true))
+                    .Select(e => e.Last().Name)
+                    .OrderByDescending(e => e)
+                    .FirstOrDefault();
 
             var entsByFace =
                 Faces
@@ -144,12 +178,13 @@ namespace SpaceEngineersMap
             var latLonMult = 1024 * 360.0 / Math.PI / 90;
             maxMercatorLon *= Math.PI / 180.0;
             minMercatorLon *= Math.PI / 180.0;
+            transverseMercatorMeridian *= Math.PI / 180.0;
 
             entsByFace[CubeFace.Mercator] =
                 gpsentlists
                     .Select(glist =>
-                        glist.Select(g => g.ProjectMercator(1024, planetPos, planetRot, minMercatorLon, maxMercatorLon, latLonMult, latLonMult, northIsYMinus))
-                             .Where(e => e != null)
+                        glist.Select(g => g.ProjectMercator(1024, planetPos, planetRot, minMercatorLon, maxMercatorLon, latLonMult, latLonMult, northIsYMinus, transverseMercator, transverseMercatorMeridian))
+                             .OfType<ProjectedGpsEntry>()
                              .ToList()
                     )
                     .ToList();
@@ -429,7 +464,7 @@ namespace SpaceEngineersMap
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3D ProjectMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus)
+        public static Vector3D ProjectMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus, bool transverseMercator, double transverseMercatorMeridian)
         {
             if (coords.X == 0 && coords.Z == 0)
             {
@@ -458,9 +493,42 @@ namespace SpaceEngineersMap
             return new Vector3D(lon * lonMult, y * latMult, mult);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3D ProjectTransverseMercator(int mult, Vector3D coords, double minMercatorLon, double maxMercatorLon, double latMult, double lonMult, bool northIsYMinus, double transverseMercatorMeridian)
+        {
+            var x = coords.X * Math.Cos(transverseMercatorMeridian) + coords.Z * Math.Sin(transverseMercatorMeridian);
+            var z = -coords.X * Math.Sin(transverseMercatorMeridian) + coords.Z * Math.Cos(transverseMercatorMeridian);
+
+            if (coords.Y == 0 && z == 0)
+            {
+                return Vector3D.NaN;
+            }
+
+            var lat = Math.Atan2(coords.Y, z) - (minMercatorLon + maxMercatorLon) / 2;
+            var y = x / Math.Sqrt(coords.Y * coords.Y + z * z);
+
+            if (northIsYMinus)
+            {
+                lat = -lat;
+                y = -y;
+            }
+
+            while (lat < -Math.PI)
+            {
+                lat += Math.PI * 2;
+            }
+
+            while (lat >= Math.PI)
+            {
+                lat -= Math.PI * 2;
+            }
+
+            return new Vector3D(y * lonMult, lat * latMult, mult);
+        }
+
         private static Image<Argb32> CreateMercatorContourMap(Dictionary<string, Map> maps, SEMapOptions options)
         {
-            var map = Map.CreateMercatorMap(maps, options.MinMercatorLongitude, options.MaxMercatorLongitude, options.NorthIsYMinus);
+            var map = Map.CreateMercatorMap(maps, options.MinMercatorLongitude, options.MaxMercatorLongitude, options.NorthIsYMinus, options.TransverseMercator, options.TransverseMercatorMeridian);
             return map.CreateContourMap(options);
         }
 
@@ -604,62 +672,76 @@ namespace SpaceEngineersMap
                     //bmp.RotateFlip(opts.FaceRotations[kvp.Key]);
                     var mapbounds = new Bounds(new RectangleF(0, 0, bmp.Width, bmp.Height));
 
-                    var griddrawer = new MapDrawer(bmp, new List<ProjectedGpsEntry>(), opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude);
+                    var gridDrawOps = new List<(DrawingOps.IDrawingOp Op, bool IncludeInBounds, object? Info)>();
+
+                    var griddrawer = new MapDrawer(bmp, gridDrawOps, Fonts, [], opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude, opts.TransverseMercator, opts.TransverseMercatorMeridian);
                     griddrawer.Open(Fonts);
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} map drawer opened for {System.IO.Path.GetFileName(outdir)}");
-                    griddrawer.DrawEdges();
+                    griddrawer.AddEdges();
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} edges drawn for {System.IO.Path.GetFileName(outdir)}");
-                    griddrawer.DrawLatLonLines();
+                    griddrawer.AddLatLonLines();
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} lat/lon lines for {System.IO.Path.GetFileName(outdir)}");
+                    griddrawer.Draw(bmp);
 
                     var ovlbmp = new Image<Argb32>(bmp.Width, bmp.Height);
                     ovlmaps[kvp.Key] = ovlbmp;
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} overlay map created for {System.IO.Path.GetFileName(outdir)}");
 
+                    var ovlDrawOps = new List<(DrawingOps.IDrawingOp Op, bool IncludeInBounds, object? Info)>();
                     var drawers = new List<MapDrawer>();
 
                     foreach (var gpsents in gpsentlists[kvp.Key].OrderBy(e => e.FirstOrDefault()?.IsPlayer))
                     {
                         if (gpsents.Count >= 2)
                         {
-                            var drawer = new MapDrawer(ovlbmp, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude);
+                            var drawer = new MapDrawer(ovlbmp, ovlDrawOps, Fonts, gpsents, opts.FaceRotations[kvp.Key], kvp.Key, segments, opts.IncludeAuxTravels, opts.MinMercatorLongitude, opts.MaxMercatorLongitude, opts.TransverseMercator, opts.TransverseMercatorMeridian);
                             drawers.Add(drawer);
                             drawer.Open(Fonts);
-                            drawer.DrawLatLonLines();
+                            drawer.AddLatLonLines();
                         }
                     }
 
-                    var textpaths = new List<(Brush TextBrush, Pen OutlinePen, IPathCollection Paths)>();
+                    var textpaths = new List<(Brush TextBrush, Pen OutlinePen, IPathCollection Paths, string Text)>();
 
                     foreach (var drawer in drawers)
                     {
                         textpaths.AddRange(drawer.GetPOITextPaths().Where(e => e != default));
                     }
 
-                    ovlbmp.Mutate(g =>
+                    foreach (var (textBrush, outlinePen, path, text) in textpaths)
                     {
-                        foreach (var (textBrush, outlinePen, path) in textpaths)
-                        {
-                            g.Draw(outlinePen, path);
-                        }
-                    });
-
-                    foreach (var drawer in drawers)
-                    {
-                        drawer.DrawPOIs();
+                        ovlDrawOps.Add((
+                            new DrawingOps.StrokedPath(outlinePen, path),
+                            false,
+                            new
+                            {
+                                Type = "text_outline",
+                                Text = text
+                            }
+                        ));
                     }
 
                     foreach (var drawer in drawers)
                     {
-                        drawer.DrawPath();
+                        drawer.AddPOIs();
                     }
 
-                    foreach (var (textBrush, outlinePen, path) in textpaths)
+                    foreach (var drawer in drawers)
                     {
-                        ovlbmp.Mutate(g =>
-                        {
-                            g.Fill(textBrush, path);
-                        });
+                        drawer.AddPath();
+                    }
+
+                    foreach (var (textBrush, outlinePen, path, text) in textpaths)
+                    {
+                        ovlDrawOps.Add((
+                            new DrawingOps.FilledPath(textBrush, path),
+                            false,
+                            new
+                            {
+                                Type = "text_fill",
+                                Text = text
+                            }
+                        ));
 
                         if (!opts.CropEnd)
                         {
@@ -674,20 +756,17 @@ namespace SpaceEngineersMap
                         }
                     }
 
+                    MapDrawer.Draw(ovlbmp, ovlDrawOps);
+
                     bmp = bmp.Clone(p => p.DrawImage(ovlbmp, 1.0f));
                     maps[kvp.Key] = bmp;
                     Trace.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fffffff}: Face {kvp.Key} map cloned and overlayed for {System.IO.Path.GetFileName(outdir)}");
 
                     if (!opts.CropEnd)
                     {
-                        foreach (var drawer in drawers)
+                        if (MapDrawer.GetBounds(ovlDrawOps, new RectangleF(0, 0, ovlbmp.Width, ovlbmp.Height)) is RectangleF bounds)
                         {
-                            var bounds = drawer.GetBounds();
-
-                            if (bounds?.Left < bmp.Width && bounds?.Right >= 0 && bounds?.Top < bmp.Height && bounds?.Bottom >= 0)
-                            {
-                                mapbounds.AddRectangle(bounds);
-                            }
+                            mapbounds.AddRectangle(bounds);
                         }
                     }
 

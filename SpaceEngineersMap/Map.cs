@@ -1,22 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Runtime.InteropServices;
 using System.Linq;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using System.Runtime.InteropServices.Marshalling;
 using MathNet.Spatial.Euclidean;
 
 namespace SpaceEngineersMap
 {
     public class Map
     {
-        public CubeFace Face { get; set; }
-        public string Name { get; set; }
-        public ushort[][] Heights { get; set; }
-        public MapMaterial[][] Materials { get; set; }
+        public required CubeFace Face { get; init; }
+        public required string Name { get; init; }
+        public required ushort[][] Heights { get; init; }
+        public required MapMaterial[][] Materials { get; init; }
 
         public static Map Load(string path, string name)
         {
@@ -70,7 +68,7 @@ namespace SpaceEngineersMap
             };
         }
 
-        public static Map CreateMercatorMap(Dictionary<string, Map> maps, double minMercatorLon, double maxMercatorLon, bool northIsYMinus)
+        public static Map CreateMercatorMap(Dictionary<string, Map> maps, double minMercatorLon, double maxMercatorLon, bool northIsYMinus, bool transverseMercator, double transverseMercatorMeridian)
         {
             var width = (int)((maxMercatorLon - minMercatorLon) * 2048 / 90) + 2;
 
@@ -88,16 +86,51 @@ namespace SpaceEngineersMap
 
                 for (int px = 0; px < lineheights.Length; px++)
                 {
-                    var lon = (px - 1) * torad + minMercatorLon;
-                    var lattan = (py - heights.Length / 2) * torad;
+                    Vector3D pos;
 
-                    if (northIsYMinus)
+                    if (!transverseMercator)
                     {
-                        lon = -lon;
-                        lattan = -lattan;
+                        var lon = (px - 1) * torad + minMercatorLon;
+                        var lattan = (py - heights.Length / 2) * torad;
+                        
+                        if (northIsYMinus)
+                        {
+                            lon = -lon;
+                            lattan = -lattan;
+                        }
+                        
+                        pos = new Vector3D(
+                            -Math.Sin(lon) * radius,
+                            lattan * radius,
+                            Math.Cos(lon) * radius
+                        );
+                    }
+                    else
+                    {
+                        var lontan = (px - heights.Length / 2) * torad;
+                        var lat = (py - 1) * torad + minMercatorLon;
+                        
+                        if (northIsYMinus)
+                        {
+                            lontan = -lontan;
+                            lat = -lat;
+                        }
+
+                        pos = new Vector3D(
+                            -lontan * radius,
+                            Math.Sin(lat) * radius,
+                            Math.Cos(lat) * radius
+                        );
+
+                        // rotate by transverseMercatorMeridian
+
+                        pos = new Vector3D(
+                            pos.X * Math.Cos(transverseMercatorMeridian) - pos.Z * Math.Sin(transverseMercatorMeridian),
+                            pos.Y,
+                            pos.X * Math.Sin(transverseMercatorMeridian) + pos.Z * Math.Cos(transverseMercatorMeridian)
+                        );
                     }
 
-                    var pos = new Vector3D(-Math.Sin(lon) * radius, lattan * radius, Math.Cos(lon) * radius);
                     var (pface, ppoint) = MapUtils.Project(pos, mult, mult, false);
                     var x = ppoint.X + mult + 0.5;
                     var xi = (int)x;
