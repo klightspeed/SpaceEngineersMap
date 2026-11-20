@@ -1,6 +1,4 @@
 ﻿using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
 
 namespace SpaceEngineersMap.DrawingOps
@@ -13,11 +11,11 @@ namespace SpaceEngineersMap.DrawingOps
         public float Height { get; set; } = height;
         public Pen Pen { get; set; } = pen;
 
-        public void Draw(IImageProcessingContext context) => context.Draw(Pen, new RectangleF(X, Y, Width, Height));
+        public void Draw(DrawingCanvas canvas) => canvas.Draw(Pen, new RectanglePolygon(X, Y, Width, Height));
         
         public IPath GetBoundsPath()
-            => new RectangularPolygon(X, Y, Width, Height).GenerateOutline(Pen.StrokeWidth);
+            => new RectanglePolygon(X, Y, Width, Height).GenerateOutline(Pen.StrokeWidth);
 
-        public IPathCollection ToPaths() => new PathCollection(new RectangularPolygon(X, Y, Width, Height));
+        public IPathCollection ToPaths() => new PathCollection(new RectanglePolygon(X, Y, Width, Height));
     }
 }

@@ -1,7 +1,5 @@
-﻿using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing;
+﻿using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Processing;
 
 namespace SpaceEngineersMap.DrawingOps
 {
@@ -10,10 +8,10 @@ namespace SpaceEngineersMap.DrawingOps
         public IPathCollection Path { get; set; } = path;
         public Pen Pen { get; set; } = pen;
         
-        public void Draw(IImageProcessingContext context) => context.Draw(Pen, Path);
+        public void Draw(DrawingCanvas canvas) => canvas.Draw(Pen, Path);
         
         public IPath GetBoundsPath()
-            => new RectangularPolygon(Path.Bounds).GenerateOutline(Pen.StrokeWidth);
+            => new RectanglePolygon(Path.Bounds).GenerateOutline(Pen.StrokeWidth);
         
         public IPathCollection ToPaths() => Path;
     }

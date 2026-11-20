@@ -1,12 +1,11 @@
-﻿using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing;
-using SixLabors.ImageSharp.Processing;
+﻿using SixLabors.ImageSharp.Drawing;
+using SixLabors.ImageSharp.Drawing.Processing;
 
 namespace SpaceEngineersMap.DrawingOps
 {
     public interface IDrawingOp
     {
-        void Draw(IImageProcessingContext context);
+        void Draw(DrawingCanvas canvas);
         IPath GetBoundsPath();
         IPathCollection ToPaths();
     }

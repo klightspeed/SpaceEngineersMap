@@ -1,10 +1,6 @@
 ﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SpaceEngineersMap.DrawingOps
 {
@@ -16,7 +12,7 @@ namespace SpaceEngineersMap.DrawingOps
         public float Y2 { get; set; } = y2;
         public Pen Pen { get; set; } = pen;
         
-        public void Draw(IImageProcessingContext context) => context.DrawLine(Pen, new PointF(X1, Y1), new PointF(X2, Y2));
+        public void Draw(DrawingCanvas canvas) => canvas.DrawLine(Pen, new PointF(X1, Y1), new PointF(X2, Y2));
         
         public IPath GetBoundsPath()
             => new Path(new LinearLineSegment(new PointF(X1, Y1), new PointF(X2, Y2))).GenerateOutline(Pen.StrokeWidth);

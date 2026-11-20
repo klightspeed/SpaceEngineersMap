@@ -38,14 +38,14 @@ namespace SpaceEngineersMap
         private readonly bool TransverseMercator = transverseMercator;
         private readonly double TransverseMercatorMeridian = transverseMercatorMeridian;
         private readonly List<(DrawingOps.IDrawingOp Op, bool IncludeInBounds, object? Info)> DrawingOps = drawingOps;
-        private static readonly Pen GridPen = new SolidPen(new PenOptions(Color.FromRgba(64, 64, 64, 64), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private static readonly Pen GridMinorPen = new SolidPen(new PenOptions(Color.FromRgba(64, 64, 64, 32), 0.5f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private static readonly Pen TravelPen = new SolidPen(new PenOptions(Color.Blue, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private static readonly Pen TravelPen2 = new SolidPen(new PenOptions(Color.Black, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private static readonly Pen TravelPenProx = new SolidPen(new PenOptions(Color.FromRgba(32, 32, 64, 255), 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private static readonly Pen AltPen = new SolidPen(new PenOptions(Color.DarkRed, 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private static readonly Pen MissilePen = new SolidPen(new PenOptions(Color.OrangeRed, 1.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
-        private static readonly Pen BotPen = new SolidPen(new PenOptions(Color.FromRgba(192, 64, 0, 255), 2.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+        private static readonly Pen GridPen = new SolidPen(new PenOptions(Color.FromPixel(new Rgba32(64, 64, 64, 64)), 1.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
+        private static readonly Pen GridMinorPen = new SolidPen(new PenOptions(Color.FromPixel(new Rgba32(64, 64, 64, 32)), 0.5f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
+        private static readonly Pen TravelPen = new SolidPen(new PenOptions(Color.FromPixel(new Rgba32(0, 0, 255, 255)), 2.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
+        private static readonly Pen TravelPen2 = new SolidPen(new PenOptions(Color.FromPixel(new Rgba32(0, 0, 0, 255)), 2.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
+        private static readonly Pen TravelPenProx = new SolidPen(new PenOptions(Color.FromPixel(new Rgba32(32, 32, 64, 255)), 1.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
+        private static readonly Pen AltPen = new SolidPen(new PenOptions(Color.FromPixel(new Rgba32(139, 0, 0, 255)), 2.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
+        private static readonly Pen MissilePen = new SolidPen(new PenOptions(Color.OrangeRed, 1.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
+        private static readonly Pen BotPen = new SolidPen(new PenOptions(Color.FromPixel(new Rgba32(192, 64, 0, 255)), 2.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
         private static readonly Brush TickBrush = new SolidBrush(Color.LightCyan);
         private static readonly Brush POIBrush = new SolidBrush(Color.DarkViolet);
         private static readonly Brush POI2Brush = new SolidBrush(Color.DarkGreen);
@@ -53,7 +53,7 @@ namespace SpaceEngineersMap
         private static readonly Brush POI4Brush = new SolidBrush(Color.DarkOrange);
         private static readonly Brush TextBrush = new SolidBrush(Color.Black);
         private static readonly Brush Text2Brush = new SolidBrush(Color.DarkRed);
-        private static readonly Pen TextOutlinePen = new SolidPen(new PenOptions(Color.White, 4.0f) { EndCapStyle = EndCapStyle.Round, JointStyle = JointStyle.Round });
+        private static readonly Pen TextOutlinePen = new SolidPen(new PenOptions(Color.White, 4.0f) { StrokeOptions = new StrokeOptions { LineCap = LineCap.Round, LineJoin = LineJoin.Round } });
         private readonly Font TextFont = new(fonts.Get("Microsoft Sans Serif"), 12.0f);
         private readonly Font Text2Font = new(fonts.Get("Microsoft Sans Serif"), 12.0f);
 
@@ -832,13 +832,13 @@ namespace SpaceEngineersMap
 
         public static void Draw(Image<Argb32> image, List<(DrawingOps.IDrawingOp Op, bool IncludeInBounds, object? info)> ops)
         {
-            image.Mutate(g =>
+            image.Mutate(g => g.Paint(c =>
             {
                 foreach (var (op, _, _) in ops)
                 {
-                    op.Draw(g);
+                    op.Draw(c);
                 }
-            });
+            }));
         }
 
         public RectangleF? GetBounds() => GetBounds(DrawingOps, new RectangleF(0, 0, Width, Height));
@@ -847,7 +847,7 @@ namespace SpaceEngineersMap
         {
             var boundsOps = ops.Where(e => e.IncludeInBounds).Select(e => e.Op.GetBoundsPath()).OfType<IPath>().ToList();
 
-            var clipPath = new RectangularPolygon(bounds);
+            var clipPath = new RectanglePolygon(bounds);
             var paths = new PathCollection(boundsOps.Select(e => e.Clip(clipPath)).Where(e => e.Bounds.Width != 0 && e.Bounds.Height != 0));
 
             if (paths.Bounds.Width == 0 || paths.Bounds.Height == 0)

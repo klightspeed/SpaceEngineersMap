@@ -6,6 +6,7 @@ using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.ImageSharp.Drawing.Text;
 
 namespace SpaceEngineersMap
 {
@@ -182,8 +183,7 @@ namespace SpaceEngineersMap
 
                 string text = string.Join("\r\n", lines);
                 var glyphs = TextBuilder.GenerateGlyphs(text, format);
-                var rect = glyphs.Bounds;
-                var paths = glyphs.ToList();
+                var paths = glyphs.SelectMany(e => e.PathList).ToList();
 
                 for (int i = 0; i < hrules.Length - 1; i++)
                 {
@@ -204,7 +204,7 @@ namespace SpaceEngineersMap
                             break;
                     }
 
-                    paths.Add(new RectangularPolygon(new RectangleF(hrulemargin, rulepos - 0.5f, hrulelen, 1.0f)));
+                    paths.Add(new RectanglePolygon(hrulemargin, rulepos - 0.5f, hrulelen, 1.0f));
                 }
 
                 var attachpoint = new PointF(attach.AttachPoint.X * margin, attach.AttachPoint.Y * margin) + attachpos;
@@ -237,7 +237,7 @@ namespace SpaceEngineersMap
 
                     }
 
-                    var linepath = new Path(new LinearLineSegment(linefrom - attachpoint, lineto - attachpoint)).GenerateOutline(1.0f, JointStyle.Round, EndCapStyle.Round);
+                    var linepath = new Path(new LinearLineSegment(linefrom - attachpoint, lineto - attachpoint)).GenerateOutline(1.0f, new StrokeOptions { LineJoin = LineJoin.Round, LineCap = LineCap.Round });
                     paths.Add(linepath);
                 }
 

@@ -1,7 +1,6 @@
 ﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Processing;
 
 namespace SpaceEngineersMap.DrawingOps
 {
@@ -13,7 +12,7 @@ namespace SpaceEngineersMap.DrawingOps
         public PointF P4 { get; set; } = p4;
         public Pen Pen { get; set; } = pen;
         
-        public void Draw(IImageProcessingContext context) => context.DrawBeziers(Pen, P1, P2, P3, P4);
+        public void Draw(DrawingCanvas canvas) => canvas.DrawBezier(Pen, P1, P2, P3, P4);
         
         public IPath GetBoundsPath()
         {

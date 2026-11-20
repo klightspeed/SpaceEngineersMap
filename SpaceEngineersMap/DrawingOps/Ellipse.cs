@@ -1,7 +1,5 @@
-﻿using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing;
+﻿using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Processing;
 
 namespace SpaceEngineersMap.DrawingOps
 {
@@ -13,7 +11,7 @@ namespace SpaceEngineersMap.DrawingOps
         public float RY { get; set; } = ry;
         public Pen Pen { get; set; } = pen;
         
-        public void Draw(IImageProcessingContext context) => context.Draw(Pen, new EllipsePolygon(CX, CY, RX, RY));
+        public void Draw(DrawingCanvas canvas) => canvas.Draw(Pen, new EllipsePolygon(CX, CY, RX, RY));
         
         public IPath GetBoundsPath()
             => new EllipsePolygon(CX, CY, RX, RY).GenerateOutline(Pen.StrokeWidth);
