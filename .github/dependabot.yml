@@ -1,0 +1,18 @@
+version: 2
+
+multi-ecosystem-groups:
+  weekly-batch:
+    schedule:
+      interval: cron
+      cronjob: 14 35 * * 3
+      timezone: "Etc/UTC"
+
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    ignore:
+      - dependency-name: '*'
+        update-types: ["version-update:semver-major"]
+    multi-ecosystem-group: "weekly-batch"
+    patterns:
+      - "*"
